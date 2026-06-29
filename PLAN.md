@@ -23,13 +23,11 @@ Challenges we can think about handling:
         - If phone matches, merge.
         - If GitHub/LinkedIn matches, merge.
         
-
-
 [All of this fill come under Entity Resolution, Field Resolution, Conflict Resolution]
 
 
 ### ER:
-1. AI:
+1. AI: [Less priority because output should be deterministic]
     - Embedding based
     - LLM (less likely because might not be cost effective) (?)
     - Named Entity Recognition: Can be important for free text or resume parsing [VVI]

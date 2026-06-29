@@ -1,0 +1,77 @@
+name,email,phone,current_company,title
+Alice Johnson,alice.johnson@example.com,(415) 555-0134,Google,Backend Engineer
+Bob Smith,bob.smith@example.com,+1 212-555-0198,Meta,Frontend Engineer
+Carla Mendes,carla.mendes@example.com,+44 20 7946 0958,Spotify,Data Engineer
+David Kim,david.kim@example.com,,Amazon,Software Engineer II
+Esha Patel,esha.patel@example.com,+91 98765 43210,Flipkart,Machine Learning Engineer
+Frank Nguyen,frank.nguyen@example,555-0101,Netflix,Platform Engineer
+Grace Lee,grace.lee@example.com,+1-650-555-0177,,DevOps Engineer
+Hannah Brown,hannah.brown@example.com,N/A,Airbnb,Product Engineer
+Ivan Petrov,ivan.petrov@example.com,+49 30 123456,SAP,Cloud Engineer
+Julia Santos,julia.santos@example.com,+55 11 91234-5678,Nubank,Backend Engineer
+Alice Johnson,alice.johnson@example.com,415.555.0134,Google LLC,Software Engineer
+Alice M. Johnson,alice.johnson@example.com,+1 (415) 555-0134,Alphabet,Senior Backend Engineer
+Bob Smith,bob.smith@example.com,2125550198,Facebook,UI Engineer
+Robert Smith,bob.smith@example.com,+1 212 555 0198,Meta Platforms,Frontend Engineer II
+Carla Mendez,carla.mendes@example.com,020 7946 0958,Spotify AB,Senior Data Engineer
+Esha P.,esha.patel@example.com,9876543210,Flipkart Internet,ML Engineer
+Grace Lee,grace.lee@example.com,6505550177,Stripe,Site Reliability Engineer
+Grace L,grace.lee@example.com,,Stripe Inc.,DevOps Engineer
+Marcus Chen,marcus.chen@example.com,+1 206 555 0114,Microsoft,Full Stack Engineer
+Mark Chen,mchen@example.com,206-555-0114,Microsoft Corp,Software Engineer
+Priya Shah,priya.shah@example.com,+91-80-5555-0199,Infosys,Java Developer
+Priya S,pshah.personal@example.net,080 5555 0199,Infosys Limited,Backend Developer
+Noah Williams,noah.williams@example.com,+1 303 555 0109,Oracle,Cloud Applications Engineer
+Noah William,noahw@example.org,303.555.0109,Oracle Corporation,Software Developer
+Sam Lee,sam.lee.sf@example.com,+1 415 555 0188,Uber,iOS Engineer
+Sam Lee,sam.lee.ny@example.com,+1 646 555 0188,Bloomberg,Data Platform Engineer
+Alex Rivera,alex.rivera1@example.com,+1 512 555 0170,Tesla,Firmware Engineer
+Alex Rivera,alex.rivera2@example.com,+1 305 555 0170,Magic Leap,AR Engineer
+Mina Okafor,,+234 803 555 0112,Andela,Backend Engineer
+,liam.owens@example.com,+353 1 555 0190,Intercom,Staff Engineer
+Olivia Chen,olivia.chen[at]example.com,+1 408 555 0131,Apple,ML Infrastructure Engineer
+Pablo Garcia,pablo.garcia@example.com,unknown,Mercado Libre,Data Scientist
+Quinn Taylor,quinn.taylor@example.com,,,
+Riya Kapoor,"riya.kapoor@example.com, riya.alt@example.com",+91 22 5555 0123,TCS,Software Engineer
+Theo Martin,theo.martin@example..com,+33 1 55 55 01 23,Datadog,Observability Engineer
+Uma Iyer,uma.iyer@example.com,+91,Zoho,Full Stack Developer
+Victor Hugo,victor.hugo@example.com,12345,Criteo,Backend Engineer
+Wen Zhao,wen.zhao@example.com,+86 10 5555 0189,ByteDance,Recommendation Systems Engineer
+Ximena Torres,ximena.torres@example.com,+52 55 5555 0166,Kavak,Data Engineer
+Yara Haddad,yara.haddad@example.com,+971 4 555 0198,Careem,Platform Engineer
+Zane Cooper,zane.cooper@example.com,+61 2 5550 0198,Atlassian,Backend Engineer
+  Nina Patel  ,NINA.PATEL@EXAMPLE.COM,(646) 555-0100,JPMorgan Chase,Quant Engineer
+Nina Patel,nina.patel@example.com,+1 646 555 0100,JPMC,"Software Engineer, Quant"
+Oscar De La Cruz,oscar.delacruz@example.com,+1 213 555 0111,Snap Inc.,AR Backend Engineer
+Oscar de la Cruz,oscar.delacruz@example.com,2135550111,Snap,Backend Engineer
+Lena Mueller,lena.mueller@example.com,+49 (89) 5555-0144,BMW Group,Embedded Software Engineer
+Lena Müller,lena.mueller@example.com,089 5555 0144,BMW,Automotive Software Engineer
+Sofia Rossi,sofia.rossi@example.com,+39 02 5555 0191,Bending Spoons,Mobile Engineer
+Sofia Rossi,sofia.rossi@example.com,,Bending Spoons S.p.A.,iOS Engineer
+Tom Wilson,tom.wilson@example.com,+1 617 555 0137,HubSpot,CRM Engineer
+Tom Wilson,tom.wilson@example.com,+1 617 555 0137,HubSpot,CRM Engineer
+Aisha Khan,aisha.khan@example.com,+92 21 5555 0177,Systems Limited,Data Engineer
+Aisha Khan,aisha.khan@example.com,+92-21-5555-0177,Systems Ltd,Senior Data Engineer
+Ben O'Connor,ben.oconnor@example.com,+353 87 555 0120,Stripe,Payments Engineer
+Ben OConnor,ben.oconnor@example.com,087 555 0120,Stripe Payments,Backend Engineer
+Chloe Dubois,chloe.dubois@example.com,+33 6 55 55 01 20,Mistral AI,ML Engineer
+Chloe Dubois,chloe.dubois@example.com,,Mistral,Machine Learning Engineer
+Diego Fernandez,diego.fernandez@example.com,+34 91 555 0180,Glovo,Platform Engineer
+Diego Fernández,diego.fernandez@example.com,915550180,Glovo App,Staff Platform Engineer
+Elena Popescu,elena.popescu@example.com,+40 21 555 0199,UiPath,RPA Engineer
+Elena Popescu,elena.popescu+jobs@example.com,+40 21 555 0199,UiPath Inc,Automation Engineer
+Farah Nasser,farah.nasser@example.com,+20 2 5555 0184,Valeo,Embedded Engineer
+Giorgio Bianchi,giorgio.bianchi@example.com,+39 06 5555 0184,Enel,Cloud Engineer
+Haruto Tanaka,haruto.tanaka@example.com,+81 3 5555 0160,Rakuten,Backend Engineer
+Isabella Moore,isabella.moore@example.com,+1 425 555 0153,Amazon Web Services,Solutions Engineer
+Jonas Berg,jonas.berg@example.com,+46 8 555 0199,Klarna,Payments Engineer
+Kira Novak,kira.novak@example.com,+420 2 5555 0102,JetBrains,IDE Platform Engineer
+Leah Cohen,leah.cohen@example.com,+972 3 555 0142,Wix,Frontend Engineer
+Mateo Silva,mateo.silva@example.com,+55 21 95555-0142,Stone,Backend Engineer
+Nadia Ivanova,nadia.ivanova@example.com,+7 495 555 0142,Yandex,Search Engineer
+Omar Aziz,omar.aziz@example.com,+966 11 555 0142,STC,Network Software Engineer
+Petra Novak,petra.novak@example.com,+385 1 555 0142,Infobip,Messaging Platform Engineer
+Rafael Costa,rafael.costa@example.com,+351 21 555 0142,OutSystems,Low-Code Platform Engineer
+Sara Ahmed,sara.ahmed@example.com,+971 50 555 0142,Noon,Data Scientist
+Tariq Mansour,tariq.mansour@example.com,+974 4 555 0142,Qatar Airways,Backend Engineer
+Valentina Ruiz,valentina.ruiz@example.com,+57 1 555 0142,Rappi,Mobile Engineer
