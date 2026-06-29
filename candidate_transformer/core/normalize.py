@@ -26,6 +26,15 @@ SKILL_ALIASES = {
     "node": "Node.js",
     "postgres": "PostgreSQL",
     "postgresql": "PostgreSQL",
+    "distributed systems": "Distributed Systems",
+    "docker": "Docker",
+    "aws": "AWS",
+    "gcp": "GCP",
+    "azure": "Azure",
+    "sql": "SQL",
+    "mysql": "MySQL",
+    "mongodb": "MongoDB",
+    "redis": "Redis",
 }
 
 
