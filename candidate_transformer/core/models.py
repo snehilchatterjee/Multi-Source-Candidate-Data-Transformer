@@ -25,9 +25,13 @@ class Observation:
     """
     A single extracted claim from one source.
 
+    record_id groups observations that came from the same source record,
+    for example the same CSV row.
+
     This is not yet the final truth. It is evidence.
     """
 
+    record_id: str
     field_path: str
     raw_value: Any
     normalized_value: Any
