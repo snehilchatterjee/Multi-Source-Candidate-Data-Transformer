@@ -86,3 +86,16 @@ def test_parse_recruiter_notes_file_directory_path_returns_error(tmp_path):
     assert result.observations == []
     assert len(result.errors) == 1
     assert "directory" in result.errors[0]
+
+def test_parse_recruiter_note_text_accepts_candidate_ref():
+    result = parse_recruiter_note_text(
+        "Strong in Python and k8s.",
+        source_id="alex.txt",
+        candidate_ref="C001",
+    )
+
+    values = {(obs.field_path, obs.normalized_value) for obs in result.observations}
+
+    assert ("candidate_ref", "C001") in values
+    assert ("skills", "Python") in values
+    assert ("skills", "Kubernetes") in values

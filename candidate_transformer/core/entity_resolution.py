@@ -10,6 +10,7 @@ from candidate_transformer.core.models import Observation
 
 
 AUTO_MERGE_IDENTITY_FIELDS = {
+    "candidate_ref": "candidate_ref",
     "emails": "email",
     "links.github": "github",
 }
@@ -231,7 +232,11 @@ def make_cluster_id(
     globally_unique_keys = tuple(
         key
         for key in identity_keys
-        if key.startswith("email:") or key.startswith("github:")
+        if (
+            key.startswith("candidate_ref:")
+            or key.startswith("email:")
+            or key.startswith("github:")
+        )
     )
 
     if globally_unique_keys:

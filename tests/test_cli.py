@@ -368,3 +368,94 @@ def test_cli_strict_mode_refuses_output_when_one_input_file_is_missing(tmp_path)
 
     assert exit_code == 1
     assert not output_path.exists()
+
+def test_cli_manifest_candidate_ref_joins_csv_and_note(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "candidate_ref,name,email\n"
+        "C001,Alex Chen,alex@example.com\n",
+        encoding="utf-8",
+    )
+
+    notes_dir = tmp_path / "notes"
+    notes_dir.mkdir()
+
+    note_path = notes_dir / "alex.txt"
+    note_path.write_text(
+        "Strong in Python and k8s. No email repeated here.",
+        encoding="utf-8",
+    )
+
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "csv": [
+                    {
+                        "path": "candidates.csv",
+                    }
+                ],
+                "notes": [
+                    {
+                        "path": "notes/alex.txt",
+                        "candidate_ref": "C001",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "fields": [
+                    {
+                        "path": "name",
+                        "from": "full_name",
+                        "type": "string",
+                        "required": True,
+                    },
+                    {
+                        "path": "email",
+                        "from": "emails[0]",
+                        "type": "string",
+                        "required": True,
+                    },
+                    {
+                        "path": "skills",
+                        "from": "skills[].name",
+                        "type": "string[]",
+                    },
+                ],
+                "on_missing": "null",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "output.json"
+
+    exit_code = main(
+        [
+            "--manifest",
+            str(manifest_path),
+            "--config",
+            str(config_path),
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    assert exit_code == 0
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+    assert payload["candidate_count"] == 1
+
+    candidate = payload["candidates"][0]
+
+    assert candidate["name"] == "Alex Chen"
+    assert candidate["email"] == "alex@example.com"
+    assert candidate["skills"] == ["Kubernetes", "Python"]

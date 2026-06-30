@@ -171,3 +171,20 @@ def normalize_skill(value: str | None) -> str | None:
     key = raw.lower()
 
     return SKILL_ALIASES.get(key, raw)
+
+def normalize_candidate_ref(value: str | None) -> str | None:
+    """
+    Normalize explicit candidate references from source systems or manifests.
+
+    We intentionally do not lowercase because external IDs may be case-sensitive.
+    """
+
+    if value is None:
+        return None
+
+    ref = str(value).strip()
+
+    if not ref:
+        return None
+
+    return ref

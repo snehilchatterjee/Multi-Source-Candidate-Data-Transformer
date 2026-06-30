@@ -136,3 +136,37 @@ def test_pipeline_missing_required_projection_field_becomes_error(tmp_path):
     assert len(result.errors) == 1
     assert "Required field" in result.errors[0]
     assert result.projected_outputs == ()
+
+def test_pipeline_uses_candidate_ref_to_join_csv_and_note_without_shared_identifiers(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "candidate_ref,name,email\n"
+        "C001,Alex Chen,alex@example.com\n",
+        encoding="utf-8",
+    )
+
+    note_path = tmp_path / "alex.txt"
+    note_path.write_text(
+        "Strong in Python and k8s. No email or phone repeated here.",
+        encoding="utf-8",
+    )
+
+    result = run_candidate_pipeline(
+        csv_paths=[csv_path],
+        note_paths=[note_path],
+        note_candidate_refs={
+            str(note_path): "C001",
+        },
+    )
+
+    assert result.ok
+    assert len(result.canonical_candidates) == 1
+
+    candidate = result.canonical_candidates[0]
+
+    assert candidate.full_name == "Alex Chen"
+    assert candidate.emails == ("alex@example.com",)
+
+    skill_names = {skill.name for skill in candidate.skills}
+
+    assert skill_names == {"Kubernetes", "Python"}

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from candidate_transformer.pipeline import PipelineResult, run_candidate_pipeline
+from candidate_transformer.core.normalize import normalize_candidate_ref
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -22,9 +23,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
 
+    
+    csv_paths = list(args.csv)
+    note_paths = list(args.note)
+    note_candidate_refs: dict[str, str] = {}
+
+    if args.manifest is not None:
+        try:
+            (
+                manifest_csv_paths,
+                manifest_note_paths,
+                manifest_note_candidate_refs,
+            ) = _read_ingestion_manifest(Path(args.manifest))
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+
+        csv_paths.extend(manifest_csv_paths)
+        note_paths.extend(manifest_note_paths)
+        note_candidate_refs.update(manifest_note_candidate_refs)
+
     result = run_candidate_pipeline(
-        csv_paths=args.csv,
-        note_paths=args.note,
+        csv_paths=csv_paths,
+        note_paths=note_paths,
+        note_candidate_refs=note_candidate_refs,
         projection_config=projection_config,
         default_phone_region=args.default_phone_region,
     )
@@ -76,6 +98,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         help="Path to write output JSON. If omitted, JSON is printed to stdout.",
+    )
+    
+    parser.add_argument(
+        "--manifest",
+        help=(
+            "Path to ingestion manifest JSON. "
+            "Supports csv files and notes with candidate_ref mappings."
+        ),
     )
 
     parser.add_argument(
@@ -166,6 +196,95 @@ def _print_warnings_and_errors(result: PipelineResult) -> None:
 
     for error in result.errors:
         print(f"ERROR: {error}", file=sys.stderr)
+
+def _read_ingestion_manifest(path: Path) -> tuple[list[Path], list[Path], dict[str, str]]:
+    manifest = _read_json_file(path)
+    base_dir = path.parent
+
+    csv_paths = _manifest_paths(
+        manifest.get("csv", []),
+        base_dir=base_dir,
+        field_name="csv",
+    )
+
+    note_paths: list[Path] = []
+    note_candidate_refs: dict[str, str] = {}
+
+    notes_value = manifest.get("notes", [])
+
+    if not isinstance(notes_value, list):
+        raise ValueError("Manifest field 'notes' must be a list")
+
+    for index, entry in enumerate(notes_value):
+        if isinstance(entry, str):
+            note_path = _resolve_manifest_path(entry, base_dir)
+            note_paths.append(note_path)
+            continue
+
+        if not isinstance(entry, dict):
+            raise ValueError(f"Manifest notes[{index}] must be a string or object")
+
+        raw_path = entry.get("path")
+        if not isinstance(raw_path, str) or not raw_path:
+            raise ValueError(f"Manifest notes[{index}].path must be a non-empty string")
+
+        note_path = _resolve_manifest_path(raw_path, base_dir)
+        note_paths.append(note_path)
+
+        raw_candidate_ref = entry.get("candidate_ref")
+        if raw_candidate_ref is not None:
+            candidate_ref = normalize_candidate_ref(str(raw_candidate_ref))
+
+            if candidate_ref is None:
+                raise ValueError(
+                    f"Manifest notes[{index}].candidate_ref must be non-empty"
+                )
+
+            note_candidate_refs[str(note_path)] = candidate_ref
+            note_candidate_refs[note_path.name] = candidate_ref
+
+    return csv_paths, note_paths, note_candidate_refs
+
+
+def _manifest_paths(
+    value: Any,
+    *,
+    base_dir: Path,
+    field_name: str,
+) -> list[Path]:
+    if not isinstance(value, list):
+        raise ValueError(f"Manifest field {field_name!r} must be a list")
+
+    paths: list[Path] = []
+
+    for index, entry in enumerate(value):
+        if isinstance(entry, str):
+            paths.append(_resolve_manifest_path(entry, base_dir))
+            continue
+
+        if isinstance(entry, dict):
+            raw_path = entry.get("path")
+
+            if not isinstance(raw_path, str) or not raw_path:
+                raise ValueError(
+                    f"Manifest {field_name}[{index}].path must be a non-empty string"
+                )
+
+            paths.append(_resolve_manifest_path(raw_path, base_dir))
+            continue
+
+        raise ValueError(f"Manifest {field_name}[{index}] must be a string or object")
+
+    return paths
+
+
+def _resolve_manifest_path(raw_path: str, base_dir: Path) -> Path:
+    path = Path(raw_path)
+
+    if path.is_absolute():
+        return path
+
+    return base_dir / path
 
 
 if __name__ == "__main__":

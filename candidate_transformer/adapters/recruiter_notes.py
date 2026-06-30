@@ -9,6 +9,7 @@ from candidate_transformer.core.confidence import confidence_for
 from candidate_transformer.core.models import AdapterResult, Observation, SourceRef
 from candidate_transformer.core.normalize import (
     SKILL_ALIASES,
+    normalize_candidate_ref,
     normalize_email,
     normalize_github_url,
     normalize_skill,
@@ -34,6 +35,7 @@ def parse_recruiter_notes_file(
     *,
     source_id: str | None = None,
     default_phone_region: str = "IN",
+    candidate_ref: str | None = None,
 ) -> AdapterResult:
     path = Path(note_path)
     source_id = source_id or path.name
@@ -66,6 +68,7 @@ def parse_recruiter_notes_file(
         text,
         source_id=source_id,
         default_phone_region=default_phone_region,
+        candidate_ref=candidate_ref,
     )
 
 
@@ -74,16 +77,54 @@ def parse_recruiter_note_text(
     *,
     source_id: str = "inline_note",
     default_phone_region: str = "IN",
+    candidate_ref: str | None = None,
 ) -> AdapterResult:
     result = AdapterResult()
     record_id = f"recruiter_notes:{source_id}"
 
+    _extract_candidate_ref(candidate_ref, source_id, record_id, result)
     _extract_emails(text, source_id, record_id, result)
     _extract_phones(text, source_id, record_id, default_phone_region, result)
     _extract_github_urls(text, source_id, record_id, result)
     _extract_skills(text, source_id, record_id, result)
 
     return result
+
+def _extract_candidate_ref(
+    candidate_ref: str | None,
+    source_id: str,
+    record_id: str,
+    result: AdapterResult,
+) -> None:
+    normalized = normalize_candidate_ref(candidate_ref)
+
+    if candidate_ref is not None and normalized is None:
+        result.warnings.append(
+            f"Provided candidate_ref for notes source {source_id!r} is empty"
+        )
+        return
+
+    if normalized is None:
+        return
+
+    result.observations.append(
+        Observation(
+            record_id=record_id,
+            field_path="candidate_ref",
+            raw_value=candidate_ref,
+            normalized_value=normalized,
+            source=SourceRef(
+                source_type="ingestion_manifest",
+                source_id=source_id,
+                locator="candidate_ref",
+            ),
+            method="provided_candidate_ref -> normalize_candidate_ref",
+            confidence=confidence_for(
+                "ingestion_manifest",
+                "provided_candidate_ref",
+            ),
+        )
+    )
 
 
 def _extract_emails(

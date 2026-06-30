@@ -5,11 +5,13 @@ SOURCE_RELIABILITY = {
     "recruiter_csv": 0.95,
     "recruiter_notes": 0.80,
     "github_profile": 0.75,
+    "ingestion_manifest": 0.98,
 }
 
 
 FIELD_RELIABILITY = {
     # Structured CSV fields
+    "explicit_candidate_ref": 1.00,
     "explicit_email": 1.00,
     "explicit_phone": 0.95,
     "explicit_name": 0.95,
@@ -17,6 +19,7 @@ FIELD_RELIABILITY = {
     "explicit_url": 0.95,
 
     # Future notes/GitHub fields
+    "provided_candidate_ref": 1.00,
     "regex_email": 0.95,
     "regex_phone": 0.90,
     "regex_url": 0.90,

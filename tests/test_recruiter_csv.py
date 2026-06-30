@@ -102,3 +102,19 @@ def test_parse_recruiter_csv_missing_file_returns_error(tmp_path):
     assert result.observations == []
     assert len(result.errors) == 1
     assert "does not exist" in result.errors[0]
+
+def test_parse_recruiter_csv_extracts_candidate_ref(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "candidate_ref,name,email\n"
+        "C001,Alex Chen,alex@example.com\n",
+        encoding="utf-8",
+    )
+
+    result = parse_recruiter_csv(csv_path)
+
+    values = {(obs.field_path, obs.normalized_value) for obs in result.observations}
+
+    assert ("candidate_ref", "C001") in values
+    assert ("full_name", "Alex Chen") in values
+    assert ("emails", "alex@example.com") in values

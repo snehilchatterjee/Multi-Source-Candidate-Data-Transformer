@@ -34,6 +34,7 @@ def run_candidate_pipeline(
     *,
     csv_paths: Sequence[str | Path] = (),
     note_paths: Sequence[str | Path] = (),
+    note_candidate_refs: Mapping[str | Path, str] | None = None,
     projection_config: Mapping[str, Any] | None = None,
     default_phone_region: str = "IN",
 ) -> PipelineResult:
@@ -60,10 +61,17 @@ def run_candidate_pipeline(
         warnings.extend(adapter_result.warnings)
         errors.extend(adapter_result.errors)
 
+    normalized_note_candidate_refs = _normalize_note_candidate_refs(note_candidate_refs)
     for note_path in note_paths:
+        candidate_ref = _candidate_ref_for_note_path(
+            note_path,
+            normalized_note_candidate_refs,
+        )
+
         adapter_result = parse_recruiter_notes_file(
             note_path,
             default_phone_region=default_phone_region,
+            candidate_ref=candidate_ref,
         )
         observations.extend(adapter_result.observations)
         warnings.extend(adapter_result.warnings)
@@ -115,3 +123,27 @@ def run_candidate_pipeline(
         warnings=warnings,
         errors=errors,
     )
+
+def _normalize_note_candidate_refs(
+    note_candidate_refs: Mapping[str | Path, str] | None,
+) -> dict[str, str]:
+    if note_candidate_refs is None:
+        return {}
+
+    output: dict[str, str] = {}
+
+    for path_like, candidate_ref in note_candidate_refs.items():
+        path = Path(path_like)
+        output[str(path)] = candidate_ref
+        output[path.name] = candidate_ref
+
+    return output
+
+
+def _candidate_ref_for_note_path(
+    note_path: str | Path,
+    note_candidate_refs: Mapping[str, str],
+) -> str | None:
+    path = Path(note_path)
+
+    return note_candidate_refs.get(str(path)) or note_candidate_refs.get(path.name)

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from candidate_transformer.core.models import AdapterResult, Observation, SourceRef
 from candidate_transformer.core.normalize import (
+    normalize_candidate_ref,
     normalize_email,
     normalize_github_url,
     normalize_name,
@@ -19,6 +20,13 @@ NULL_LIKE_VALUES = {"", "null", "none", "n/a", "na", "-"}
 
 
 COLUMN_ALIASES = {
+    "candidate_ref": [
+        "candidate_ref",
+        "candidate_id",
+        "external_id",
+        "applicant_id",
+        "profile_id",
+    ],
     "full_name": ["name", "full_name", "candidate_name"],
     "emails": ["email", "emails", "primary_email"],
     "phones": ["phone", "phones", "mobile", "phone_number"],
@@ -97,6 +105,30 @@ def _parse_row(
     default_phone_region: str,
     result: AdapterResult,
 ) -> None:
+        # candidate_ref
+    candidate_ref_cell = _get_cell(row, header_lookup, COLUMN_ALIASES["candidate_ref"])
+    if candidate_ref_cell is not None:
+        raw_value, column = candidate_ref_cell
+        normalized = normalize_candidate_ref(raw_value)
+
+        if normalized is not None:
+            result.observations.append(
+                _make_observation(
+                    record_id=record_id,
+                    field_path="candidate_ref",
+                    raw_value=raw_value,
+                    normalized_value=normalized,
+                    source_id=source_id,
+                    row_number=row_number,
+                    column=column,
+                    method=f"csv_column:{column} -> normalize_candidate_ref",
+                    confidence=confidence_for(
+                        "recruiter_csv",
+                        "explicit_candidate_ref",
+                    ),
+                )
+            )
+
     # full_name
     name_cell = _get_cell(row, header_lookup, COLUMN_ALIASES["full_name"])
     if name_cell is not None:
