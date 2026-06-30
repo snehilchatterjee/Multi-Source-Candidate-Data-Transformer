@@ -2,3 +2,4 @@ phonenumbers
 requests
 dotenv
 pytest
+jsonschema

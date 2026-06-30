@@ -7,6 +7,7 @@ from typing import Any, Mapping, Sequence
 from candidate_transformer.adapters.recruiter_csv import parse_recruiter_csv
 from candidate_transformer.adapters.recruiter_notes import parse_recruiter_notes_file
 from candidate_transformer.core.canonical import CanonicalCandidate
+from candidate_transformer.core.canonical_schema import validate_canonical_candidate
 from candidate_transformer.core.entity_resolution import (
     CandidateCluster,
     resolve_candidate_clusters,
@@ -100,7 +101,22 @@ def run_candidate_pipeline(
         )
 
     clusters = tuple(resolve_candidate_clusters(observations, warnings=warnings))
-    canonical_candidates = tuple(resolve_canonical_candidates(clusters))
+    resolved_candidates = resolve_canonical_candidates(clusters)
+    valid_candidates: list[CanonicalCandidate] = []
+
+    for candidate in resolved_candidates:
+        schema_errors = validate_canonical_candidate(candidate)
+
+        if schema_errors:
+            errors.extend(
+                f"{candidate.candidate_id}: canonical schema validation failed: {error}"
+                for error in schema_errors
+            )
+            continue
+
+        valid_candidates.append(candidate)
+
+    canonical_candidates = tuple(valid_candidates)
 
     projected_outputs: tuple[dict[str, Any], ...] | None = None
 

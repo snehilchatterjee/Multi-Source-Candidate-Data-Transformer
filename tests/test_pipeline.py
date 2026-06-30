@@ -314,3 +314,25 @@ def test_pipeline_rejects_malformed_projection_config_without_inputs():
     assert not result.ok
     assert result.projected_outputs == ()
     assert result.errors == ["config.on_missing must be a string"]
+
+
+def test_pipeline_does_not_return_candidate_that_fails_canonical_schema(
+    tmp_path,
+    monkeypatch,
+):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email\nAlex Chen,alex@example.com\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "candidate_transformer.pipeline.validate_canonical_candidate",
+        lambda candidate: ["$.overall_confidence: test schema violation"],
+    )
+
+    result = run_candidate_pipeline(csv_paths=[csv_path])
+
+    assert not result.ok
+    assert result.canonical_candidates == ()
+    assert len(result.errors) == 1
+    assert "canonical schema validation failed" in result.errors[0]
