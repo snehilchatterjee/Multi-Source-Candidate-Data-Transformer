@@ -48,6 +48,16 @@ class CanonicalEmail:
 
 
 @dataclass(frozen=True)
+class CanonicalPhone:
+    value: str
+    confidence: float
+    sources: tuple[str, ...]
+    latest_application_at: str | None = None
+    distinct_application_count: int = 0
+    corroborating_notes_count: int = 0
+
+
+@dataclass(frozen=True)
 class CanonicalExperience:
     company: str | None
     title: str | None
@@ -92,6 +102,12 @@ class CanonicalCandidate:
     email_resolution_status: str = "missing"
     email_selection_reason: str | None = None
     email_confidence: float = 0.0
+    primary_phone: str | None = None
+    secondary_phones: tuple[str, ...] = ()
+    phone_details: tuple[CanonicalPhone, ...] = ()
+    phone_resolution_status: str = "missing"
+    phone_selection_reason: str | None = None
+    phone_confidence: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

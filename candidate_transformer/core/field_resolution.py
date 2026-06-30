@@ -11,6 +11,7 @@ from candidate_transformer.core.canonical import (
     CanonicalEducation,
     CanonicalEmail,
     CanonicalExperience,
+    CanonicalPhone,
     CanonicalSkill,
     ProvenanceRecord,
 )
@@ -37,6 +38,12 @@ EMAIL_STATUS_CONFIDENCE_MULTIPLIER = {
     "unstructured_only": 0.75,
     "missing": 0.00,
 }
+PHONE_FIRST_NOTES_CORROBORATION_BONUS = 0.03
+PHONE_ADDITIONAL_NOTES_CORROBORATION_BONUS = 0.01
+PHONE_ADDITIONAL_APPLICATION_BONUS = 0.02
+PHONE_MAX_CORROBORATION_BONUS = 0.05
+PHONE_MAX_RESOLVED_CONFIDENCE = 0.99
+PHONE_STATUS_CONFIDENCE_MULTIPLIER = EMAIL_STATUS_CONFIDENCE_MULTIPLIER
 
 
 @dataclass(frozen=True)
@@ -54,6 +61,26 @@ class _EmailResolution:
     primary_email: str | None
     secondary_emails: tuple[str, ...]
     details: tuple[CanonicalEmail, ...]
+    status: str
+    selection_reason: str | None
+    effective_confidence: float
+
+
+@dataclass(frozen=True)
+class _PhoneCandidate:
+    detail: CanonicalPhone
+    has_csv_observation: bool
+    notes_source_count: int
+    application_count: int
+
+
+@dataclass(frozen=True)
+class _PhoneResolution:
+    groups: dict[str, list[Observation]]
+    phones: tuple[str, ...]
+    primary_phone: str | None
+    secondary_phones: tuple[str, ...]
+    details: tuple[CanonicalPhone, ...]
     status: str
     selection_reason: str | None
     effective_confidence: float
@@ -91,9 +118,8 @@ def resolve_canonical_candidate(cluster: CandidateCluster) -> CanonicalCandidate
         for obs in _field_observations(observations, "application.id")
     )
 
-    phone_groups = _group_by_value(_field_observations(observations, "phones"))
-    phones = _sorted_group_values(phone_groups)
-    provenance.extend(_provenance_for_groups(phone_groups))
+    phone_resolution = _resolve_phones(observations)
+    provenance.extend(_provenance_for_groups(phone_resolution.groups))
 
     # GitHub: canonical model currently keeps one primary GitHub link.
     github_obs = _best_observation(_field_observations(observations, "links.github"))
@@ -111,7 +137,7 @@ def resolve_canonical_candidate(cluster: CandidateCluster) -> CanonicalCandidate
     overall_confidence = _calculate_overall_confidence(
         full_name_obs=full_name_obs,
         email_confidence=email_resolution.effective_confidence,
-        phone_groups=phone_groups,
+        phone_confidence=phone_resolution.effective_confidence,
         github_obs=github_obs,
         skills=skills,
         experience=experience,
@@ -121,7 +147,7 @@ def resolve_canonical_candidate(cluster: CandidateCluster) -> CanonicalCandidate
         candidate_id=cluster.cluster_id,
         full_name=full_name,
         emails=email_resolution.emails,
-        phones=phones,
+        phones=phone_resolution.phones,
         location=CandidateLocation(),
         links=CandidateLinks(github=github),
         headline=None,
@@ -137,6 +163,12 @@ def resolve_canonical_candidate(cluster: CandidateCluster) -> CanonicalCandidate
         email_resolution_status=email_resolution.status,
         email_selection_reason=email_resolution.selection_reason,
         email_confidence=email_resolution.effective_confidence,
+        primary_phone=phone_resolution.primary_phone,
+        secondary_phones=phone_resolution.secondary_phones,
+        phone_details=phone_resolution.details,
+        phone_resolution_status=phone_resolution.status,
+        phone_selection_reason=phone_resolution.selection_reason,
+        phone_confidence=phone_resolution.effective_confidence,
     )
 
 
@@ -330,6 +362,193 @@ def _resolve_emails(observations: list[Observation]) -> _EmailResolution:
     )
 
 
+def _resolve_phones(observations: list[Observation]) -> _PhoneResolution:
+    groups = _group_by_value(_field_observations(observations, "phones"))
+
+    if not groups:
+        return _PhoneResolution(
+            groups={},
+            phones=(),
+            primary_phone=None,
+            secondary_phones=(),
+            details=(),
+            status="missing",
+            selection_reason=None,
+            effective_confidence=0.0,
+        )
+
+    record_application_times = _record_application_times(observations)
+    record_application_keys = _record_application_keys(
+        observations,
+        record_application_times,
+    )
+    candidates: list[_PhoneCandidate] = []
+
+    for value, phone_observations in groups.items():
+        max_confidence = max(obs.confidence for obs in phone_observations)
+        has_csv_observation = any(
+            obs.source.source_type == "recruiter_csv"
+            for obs in phone_observations
+        )
+        notes_sources = {
+            (obs.source.source_type, obs.source.source_id)
+            for obs in phone_observations
+            if obs.source.source_type == "recruiter_notes"
+        }
+        application_keys = {
+            record_application_keys[obs.record_id]
+            for obs in phone_observations
+            if (
+                obs.source.source_type == "recruiter_csv"
+                and obs.record_id in record_application_keys
+            )
+        }
+
+        notes_bonus = 0.0
+        if has_csv_observation and notes_sources:
+            notes_bonus = PHONE_FIRST_NOTES_CORROBORATION_BONUS
+            notes_bonus += PHONE_ADDITIONAL_NOTES_CORROBORATION_BONUS * (
+                len(notes_sources) - 1
+            )
+
+        application_bonus = PHONE_ADDITIONAL_APPLICATION_BONUS * max(
+            0,
+            len(application_keys) - 1,
+        )
+        corroboration_bonus = min(
+            notes_bonus + application_bonus,
+            PHONE_MAX_CORROBORATION_BONUS,
+        )
+        latest_application_at = _latest_csv_application_time(
+            phone_observations,
+            record_application_times,
+        )
+        sources = tuple(
+            sorted(
+                {
+                    f"{obs.source.source_type}:{obs.source.source_id}"
+                    for obs in phone_observations
+                }
+            )
+        )
+
+        candidates.append(
+            _PhoneCandidate(
+                detail=CanonicalPhone(
+                    value=value,
+                    confidence=min(
+                        PHONE_MAX_RESOLVED_CONFIDENCE,
+                        clamp_confidence(max_confidence + corroboration_bonus),
+                    ),
+                    sources=sources,
+                    latest_application_at=latest_application_at,
+                    distinct_application_count=len(application_keys),
+                    corroborating_notes_count=len(notes_sources),
+                ),
+                has_csv_observation=has_csv_observation,
+                notes_source_count=len(notes_sources),
+                application_count=len(application_keys),
+            )
+        )
+
+    ranked = _rank_phone_candidates(candidates)
+    csv_candidates = [candidate for candidate in ranked if candidate.has_csv_observation]
+    primary: _PhoneCandidate | None = None
+    status = "ambiguous"
+    reason: str | None = None
+
+    if not csv_candidates:
+        status = "unstructured_only"
+        reason = "no_structured_csv_phone"
+    elif len(csv_candidates) == 1:
+        primary = csv_candidates[0]
+        status = "resolved"
+        reason = (
+            "csv_phone_corroborated_by_notes"
+            if primary.notes_source_count
+            else (
+                "repeated_distinct_applications"
+                if primary.application_count > 1
+                else "only_csv_phone"
+            )
+        )
+    else:
+        contenders = csv_candidates
+        recency_is_complete = all(
+            candidate.detail.latest_application_at is not None
+            for candidate in csv_candidates
+        )
+
+        if recency_is_complete:
+            latest_application_at = max(
+                candidate.detail.latest_application_at or ""
+                for candidate in csv_candidates
+            )
+            latest_candidates = [
+                candidate
+                for candidate in csv_candidates
+                if candidate.detail.latest_application_at == latest_application_at
+            ]
+            if len(latest_candidates) == 1:
+                primary = latest_candidates[0]
+                status = "resolved"
+                reason = "latest_csv_application"
+            else:
+                contenders = latest_candidates
+
+        if primary is None:
+            highest_confidence = max(
+                candidate.detail.confidence for candidate in contenders
+            )
+            highest_candidates = [
+                candidate
+                for candidate in contenders
+                if candidate.detail.confidence == highest_confidence
+            ]
+            if len(highest_candidates) == 1:
+                primary = highest_candidates[0]
+                status = "resolved"
+                reason = (
+                    "csv_phone_corroborated_by_notes"
+                    if primary.notes_source_count
+                    else (
+                        "repeated_distinct_applications"
+                        if primary.application_count > 1
+                        else "highest_phone_confidence"
+                    )
+                )
+            else:
+                status = "ambiguous"
+                reason = "equal_csv_phone_evidence"
+
+    if primary is not None:
+        ranked = [primary] + [candidate for candidate in ranked if candidate != primary]
+
+    phones = tuple(candidate.detail.value for candidate in ranked)
+    primary_phone = primary.detail.value if primary is not None else None
+    secondary_phones = tuple(phone for phone in phones if phone != primary_phone)
+    strongest_confidence = max(
+        candidate.detail.confidence for candidate in candidates
+    )
+    selected_confidence = (
+        primary.detail.confidence if primary is not None else strongest_confidence
+    )
+    effective_confidence = clamp_confidence(
+        selected_confidence * PHONE_STATUS_CONFIDENCE_MULTIPLIER[status]
+    )
+
+    return _PhoneResolution(
+        groups=groups,
+        phones=phones,
+        primary_phone=primary_phone,
+        secondary_phones=secondary_phones,
+        details=tuple(candidate.detail for candidate in ranked),
+        status=status,
+        selection_reason=reason,
+        effective_confidence=effective_confidence,
+    )
+
+
 def _record_application_times(observations: list[Observation]) -> dict[str, str]:
     by_record: dict[str, list[str]] = defaultdict(list)
 
@@ -393,6 +612,19 @@ def _latest_csv_application_time(
 def _rank_email_candidates(
     candidates: list[_EmailCandidate],
 ) -> list[_EmailCandidate]:
+    # Stable sorts produce confidence desc, application time desc, value asc.
+    ranked = sorted(candidates, key=lambda candidate: candidate.detail.value)
+    ranked.sort(
+        key=lambda candidate: candidate.detail.latest_application_at or "",
+        reverse=True,
+    )
+    ranked.sort(key=lambda candidate: candidate.detail.confidence, reverse=True)
+    return ranked
+
+
+def _rank_phone_candidates(
+    candidates: list[_PhoneCandidate],
+) -> list[_PhoneCandidate]:
     # Stable sorts produce confidence desc, application time desc, value asc.
     ranked = sorted(candidates, key=lambda candidate: candidate.detail.value)
     ranked.sort(
@@ -673,7 +905,7 @@ def _calculate_overall_confidence(
     *,
     full_name_obs: Observation | None,
     email_confidence: float,
-    phone_groups: dict[str, list[Observation]],
+    phone_confidence: float,
     github_obs: Observation | None,
     skills: tuple[CanonicalSkill, ...],
     experience: tuple[CanonicalExperience, ...],
@@ -685,7 +917,6 @@ def _calculate_overall_confidence(
     """
 
     name_confidence = full_name_obs.confidence if full_name_obs is not None else 0.0
-    phone_confidence = _best_group_confidence(phone_groups)
     github_confidence = github_obs.confidence if github_obs is not None else 0.0
 
     skills_confidence = (

@@ -201,3 +201,35 @@ def test_pipeline_notes_vote_resolves_multiple_csv_application_emails(tmp_path):
         "third@example.com",
     )
     assert candidate.email_details[0].confidence == 0.98
+
+
+def test_pipeline_notes_vote_resolves_multiple_csv_application_phones(tmp_path):
+    csv_path = tmp_path / "applications.csv"
+    csv_path.write_text(
+        "candidate_ref,application_id,name,phone\n"
+        "C001,APP-1,Alex Chen,9876543210\n"
+        "C001,APP-2,Alex Chen,9123456789\n"
+        "C001,APP-3,Alex Chen,9988776655\n",
+        encoding="utf-8",
+    )
+    note_path = tmp_path / "alex.txt"
+    note_path.write_text(
+        "Call Alex at +91 91234 56789.",
+        encoding="utf-8",
+    )
+
+    result = run_candidate_pipeline(
+        csv_paths=[csv_path],
+        note_paths=[note_path],
+        note_candidate_refs={str(note_path): "C001"},
+    )
+
+    assert result.ok
+    assert len(result.canonical_candidates) == 1
+    candidate = result.canonical_candidates[0]
+    assert candidate.primary_phone == "+919123456789"
+    assert candidate.secondary_phones == (
+        "+919876543210",
+        "+919988776655",
+    )
+    assert candidate.phone_confidence == 0.93

@@ -175,6 +175,61 @@ def test_project_candidate_can_select_primary_secondary_or_all_emails():
     }
 
 
+def test_project_candidate_can_select_primary_secondary_or_all_phones():
+    candidate = make_candidate()
+    candidate = CanonicalCandidate(
+        candidate_id=candidate.candidate_id,
+        full_name=candidate.full_name,
+        emails=candidate.emails,
+        phones=(
+            "+919111111111",
+            "+919222222222",
+            "+919333333333",
+        ),
+        links=candidate.links,
+        skills=candidate.skills,
+        experience=candidate.experience,
+        provenance=candidate.provenance,
+        overall_confidence=candidate.overall_confidence,
+        primary_phone="+919111111111",
+        secondary_phones=("+919222222222", "+919333333333"),
+        phone_resolution_status="resolved",
+        phone_confidence=0.93,
+    )
+    config = {
+        "fields": [
+            {
+                "path": "primary_phone",
+                "from": "primary_phone",
+                "type": "string",
+            },
+            {
+                "path": "secondary_phones",
+                "from": "secondary_phones",
+                "type": "string[]",
+            },
+            {
+                "path": "all_phones",
+                "from": "phones",
+                "type": "string[]",
+            },
+        ]
+    }
+
+    result = project_candidate(candidate, config)
+
+    assert result.ok
+    assert result.output == {
+        "primary_phone": "+919111111111",
+        "secondary_phones": ["+919222222222", "+919333333333"],
+        "all_phones": [
+            "+919111111111",
+            "+919222222222",
+            "+919333333333",
+        ],
+    }
+
+
 def test_project_candidate_missing_value_defaults_to_null():
     candidate = make_candidate()
 

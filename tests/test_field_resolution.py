@@ -522,6 +522,197 @@ def test_email_resolution_status_affects_email_and_overall_confidence():
     assert resolved.overall_confidence > ambiguous.overall_confidence
 
 
+def test_notes_corroboration_selects_primary_among_equal_csv_phones():
+    observations = [
+        make_observation(
+            record_id="csv_1",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="csv_1",
+            field_path="phones",
+            value="+919111111111",
+            confidence=0.90,
+        ),
+        make_observation(
+            record_id="csv_2",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="csv_2",
+            field_path="phones",
+            value="+919222222222",
+            confidence=0.90,
+        ),
+        make_observation(
+            record_id="note",
+            field_path="candidate_ref",
+            value="C001",
+            source_type="ingestion_manifest",
+        ),
+        make_observation(
+            record_id="note",
+            field_path="phones",
+            value="+919222222222",
+            confidence=0.72,
+            source_type="recruiter_notes",
+            source_id="note.txt",
+        ),
+    ]
+
+    candidate = make_candidate(observations)
+
+    assert candidate.primary_phone == "+919222222222"
+    assert candidate.secondary_phones == ("+919111111111",)
+    assert candidate.phone_resolution_status == "resolved"
+    assert candidate.phone_selection_reason == "csv_phone_corroborated_by_notes"
+    assert candidate.phone_confidence == 0.93
+    assert candidate.phone_details[0].corroborating_notes_count == 1
+
+
+def test_latest_complete_csv_application_phone_wins_over_old_votes():
+    observations = []
+    for record_id, application_time, phone in (
+        ("csv_old", "2025-01-01T00:00:00Z", "+919111111111"),
+        ("csv_new", "2026-01-01T00:00:00Z", "+919222222222"),
+    ):
+        observations.extend(
+            [
+                make_observation(
+                    record_id=record_id,
+                    field_path="candidate_ref",
+                    value="C001",
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="application.applied_at",
+                    value=application_time,
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="phones",
+                    value=phone,
+                    confidence=0.90,
+                ),
+            ]
+        )
+    observations.extend(
+        [
+            make_observation(
+                record_id="note",
+                field_path="candidate_ref",
+                value="C001",
+                source_type="ingestion_manifest",
+            ),
+            make_observation(
+                record_id="note",
+                field_path="phones",
+                value="+919111111111",
+                confidence=0.72,
+                source_type="recruiter_notes",
+                source_id="old-note.txt",
+            ),
+        ]
+    )
+
+    candidate = make_candidate(observations)
+
+    assert candidate.primary_phone == "+919222222222"
+    assert candidate.phone_selection_reason == "latest_csv_application"
+    assert candidate.phone_confidence == 0.90
+    assert candidate.phone_details[1].confidence == 0.93
+
+
+def test_distinct_applications_add_phone_support_but_duplicates_do_not():
+    distinct_observations = []
+    for record_id, application_id, phone in (
+        ("csv_1", "APP-1", "+919111111111"),
+        ("csv_2", "APP-2", "+919111111111"),
+        ("csv_3", "APP-3", "+919222222222"),
+    ):
+        distinct_observations.extend(
+            [
+                make_observation(
+                    record_id=record_id,
+                    field_path="candidate_ref",
+                    value="C001",
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="application.id",
+                    value=application_id,
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="phones",
+                    value=phone,
+                    confidence=0.90,
+                ),
+            ]
+        )
+
+    distinct_candidate = make_candidate(distinct_observations)
+
+    assert distinct_candidate.primary_phone == "+919111111111"
+    assert distinct_candidate.phone_confidence == 0.92
+    assert distinct_candidate.phone_details[0].distinct_application_count == 2
+
+    duplicate_observations = []
+    for record_id, application_id, phone in (
+        ("csv_1", "APP-1", "+919111111111"),
+        ("csv_2", "APP-1", "+919111111111"),
+        ("csv_3", "APP-2", "+919222222222"),
+    ):
+        duplicate_observations.extend(
+            [
+                make_observation(
+                    record_id=record_id,
+                    field_path="candidate_ref",
+                    value="C001",
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="application.id",
+                    value=application_id,
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="phones",
+                    value=phone,
+                    confidence=0.90,
+                ),
+            ]
+        )
+
+    duplicate_candidate = make_candidate(duplicate_observations)
+
+    assert duplicate_candidate.primary_phone is None
+    assert duplicate_candidate.phone_resolution_status == "ambiguous"
+    assert duplicate_candidate.phone_confidence == 0.45
+
+
+def test_notes_only_phone_is_secondary_with_reduced_confidence():
+    candidate = make_candidate(
+        [
+            make_observation(
+                record_id="note",
+                field_path="phones",
+                value="+919111111111",
+                confidence=0.72,
+                source_type="recruiter_notes",
+                source_id="note.txt",
+            )
+        ]
+    )
+
+    assert candidate.primary_phone is None
+    assert candidate.secondary_phones == ("+919111111111",)
+    assert candidate.phone_resolution_status == "unstructured_only"
+    assert candidate.phone_confidence == 0.54
+
+
 def test_skills_are_deduped_and_corroborated():
     observations = [
         make_observation(
