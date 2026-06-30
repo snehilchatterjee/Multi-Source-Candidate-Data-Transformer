@@ -31,7 +31,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     _print_warnings_and_errors(result)
 
-    if result.errors:
+    if result.errors and not args.allow_partial:
         return 1
 
     payload = _make_output_payload(result)
@@ -40,6 +40,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         _write_output(payload, args.output)
     except OSError as exc:
         print(f"ERROR: Could not write output: {exc}", file=sys.stderr)
+        return 1
+
+    if result.errors and args.allow_partial and payload["candidate_count"] == 0:
         return 1
 
     return 0
@@ -73,6 +76,15 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         help="Path to write output JSON. If omitted, JSON is printed to stdout.",
+    )
+
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help=(
+            "Write valid candidates even if some candidates have errors. "
+            "The output JSON will include an errors field and status='partial_success'."
+        ),
     )
 
     parser.add_argument(
@@ -111,11 +123,22 @@ def _make_output_payload(result: PipelineResult) -> dict[str, Any]:
         ]
         output_kind = "canonical"
 
+    candidate_count = len(candidates)
+
+    if result.errors and candidate_count > 0:
+        status = "partial_success"
+    elif result.errors:
+        status = "failed"
+    else:
+        status = "success"
+
     return {
+        "status": status,
         "kind": output_kind,
-        "candidate_count": len(candidates),
+        "candidate_count": candidate_count,
         "candidates": candidates,
         "warnings": result.warnings,
+        "errors": result.errors,
     }
 
 
