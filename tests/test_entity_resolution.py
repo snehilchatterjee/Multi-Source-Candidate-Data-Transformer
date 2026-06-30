@@ -1,4 +1,5 @@
 from candidate_transformer.core.entity_resolution import (
+    UnionFind,
     resolve_candidate_clusters,
     strong_identity_key_for_observation,
 )
@@ -440,3 +441,117 @@ def test_transitive_bridge_cannot_join_contradictory_candidate_refs():
         )
         for cluster in clusters
     )
+
+
+def test_reference_free_records_remain_ambiguous_between_conflicting_refs():
+    observations = [
+        make_observation(
+            record_id="r1",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="r1",
+            field_path="emails",
+            value="shared@example.com",
+        ),
+        make_observation(
+            record_id="r2",
+            field_path="candidate_ref",
+            value="C002",
+        ),
+        make_observation(
+            record_id="r2",
+            field_path="emails",
+            value="shared@example.com",
+        ),
+        make_observation(
+            record_id="r3",
+            field_path="emails",
+            value="shared@example.com",
+        ),
+        make_observation(
+            record_id="r4",
+            field_path="emails",
+            value="shared@example.com",
+        ),
+    ]
+    first_warnings: list[str] = []
+    second_warnings: list[str] = []
+
+    first = resolve_candidate_clusters(observations, warnings=first_warnings)
+    second = resolve_candidate_clusters(
+        reversed(observations),
+        warnings=second_warnings,
+    )
+
+    expected_groups = {("r1",), ("r2",), ("r3", "r4")}
+    assert {cluster.record_ids for cluster in first} == expected_groups
+    assert {cluster.record_ids for cluster in second} == expected_groups
+    assert first_warnings == second_warnings
+    assert len(first_warnings) == 1
+    assert "contradictory candidate_ref" in first_warnings[0]
+    assert "reference-free" in first_warnings[0]
+
+
+def test_large_shared_email_uses_linear_representative_unions(monkeypatch):
+    record_count = 2_000
+    observations = [
+        make_observation(
+            record_id=f"r{index:04d}",
+            field_path="emails",
+            value="shared@example.com",
+        )
+        for index in range(record_count)
+    ]
+    union_count = 0
+    original_union = UnionFind.union
+
+    def counting_union(self, left, right):
+        nonlocal union_count
+        union_count += 1
+        return original_union(self, left, right)
+
+    monkeypatch.setattr(UnionFind, "union", counting_union)
+
+    clusters = resolve_candidate_clusters(observations)
+
+    assert len(clusters) == 1
+    assert len(clusters[0].record_ids) == record_count
+    assert union_count == record_count - 1
+
+
+def test_oversized_shared_phone_bucket_skips_union_attempts(monkeypatch):
+    record_count = 1_000
+    observations: list[Observation] = []
+    for index in range(record_count):
+        record_id = f"r{index:04d}"
+        observations.extend(
+            [
+                make_observation(
+                    record_id=record_id,
+                    field_path="full_name",
+                    value="Alex Chen",
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="phones",
+                    value="+919876543210",
+                ),
+            ]
+        )
+
+    union_count = 0
+    original_union = UnionFind.union
+
+    def counting_union(self, left, right):
+        nonlocal union_count
+        union_count += 1
+        return original_union(self, left, right)
+
+    monkeypatch.setattr(UnionFind, "union", counting_union)
+
+    clusters = resolve_candidate_clusters(observations)
+
+    assert len(clusters) == record_count
+    assert union_count == 0

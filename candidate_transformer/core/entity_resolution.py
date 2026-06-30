@@ -149,27 +149,32 @@ def resolve_candidate_clusters(
     emitted_conflicts: set[tuple[str, str, str]] = set()
 
     # Process automatic identity evidence deterministically, with explicit
-    # candidate-reference matches first. Every pair is considered so a record
-    # is not tied to whichever observation happened to appear first.
+    # candidate-reference matches first. Buckets use representative unions
+    # instead of comparing every pair. When one email/GitHub bucket contains
+    # contradictory reference-bearing components, reference-free components
+    # remain in their own ambiguous cluster rather than being attached to an
+    # arbitrary referenced component.
     for identity_key in sorted(auto_key_to_record_ids, key=_auto_merge_key_sort_key):
-        record_ids = sorted(auto_key_to_record_ids[identity_key])
-
-        for left_index, left_record_id in enumerate(record_ids):
-            for right_record_id in record_ids[left_index + 1 :]:
-                _union_if_candidate_refs_compatible(
-                    left_record_id=left_record_id,
-                    right_record_id=right_record_id,
-                    merge_key=identity_key,
-                    union_find=union_find,
-                    root_to_candidate_refs=root_to_candidate_refs,
-                    warnings=warnings,
-                    emitted_conflicts=emitted_conflicts,
-                )
+        _merge_auto_identity_bucket(
+            identity_key=identity_key,
+            record_ids=auto_key_to_record_ids[identity_key],
+            union_find=union_find,
+            root_to_candidate_refs=root_to_candidate_refs,
+            warnings=warnings,
+            emitted_conflicts=emitted_conflicts,
+        )
 
     # Conditional phone merges.
     for phone_key, phone_record_ids in sorted(phone_key_to_record_ids.items()):
         sorted_record_ids = sorted(phone_record_ids)
         phone_group_size = len(sorted_record_ids)
+
+        # The policy permits name-corroborated phone merges only in small
+        # buckets. A second shared automatic key has already been processed
+        # above (or blocked by contradictory references), so a large phone
+        # bucket cannot contribute any new valid merge.
+        if phone_group_size > MAX_PHONE_NAME_MERGE_GROUP_SIZE:
+            continue
 
         for left_index, left_record_id in enumerate(sorted_record_ids):
             for right_record_id in sorted_record_ids[left_index + 1 :]:
@@ -236,6 +241,128 @@ def _auto_merge_key_sort_key(identity_key: str) -> tuple[int, str]:
         priority = 2
 
     return priority, identity_key
+
+
+def _merge_auto_identity_bucket(
+    *,
+    identity_key: str,
+    record_ids: Iterable[str],
+    union_find: UnionFind,
+    root_to_candidate_refs: dict[str, set[str]],
+    warnings: list[str] | None,
+    emitted_conflicts: set[tuple[str, str, str]],
+) -> None:
+    """Merge one automatic-key bucket with a linear number of union attempts.
+
+    Candidate-reference buckets are intrinsically compatible because every
+    member contains the reference named by the bucket. For email and GitHub
+    buckets, current DSU components are divided into reference-bearing and
+    reference-free components:
+
+    * zero referenced components: merge the whole bucket;
+    * one referenced component: merge neutral components into it;
+    * multiple referenced components: keep those components separate and
+      merge neutral components only with one another.
+
+    The final case avoids inventing which contradictory candidate reference a
+    neutral record belongs to. Candidate-reference keys are processed first,
+    so distinct reference-bearing roots at this point have disjoint reference
+    sets.
+    """
+
+    roots = sorted({union_find.find(record_id) for record_id in record_ids})
+
+    if len(roots) < 2:
+        return
+
+    if identity_key.startswith("candidate_ref:"):
+        _merge_roots_with_representative(
+            roots=roots,
+            merge_key=identity_key,
+            union_find=union_find,
+            root_to_candidate_refs=root_to_candidate_refs,
+            warnings=warnings,
+            emitted_conflicts=emitted_conflicts,
+        )
+        return
+
+    referenced_roots = [
+        root for root in roots if root_to_candidate_refs.get(root, set())
+    ]
+    neutral_roots = [
+        root for root in roots if not root_to_candidate_refs.get(root, set())
+    ]
+
+    if len(referenced_roots) <= 1:
+        representative = referenced_roots[0] if referenced_roots else neutral_roots[0]
+        _merge_roots_with_representative(
+            roots=[representative, *(root for root in roots if root != representative)],
+            merge_key=identity_key,
+            union_find=union_find,
+            root_to_candidate_refs=root_to_candidate_refs,
+            warnings=warnings,
+            emitted_conflicts=emitted_conflicts,
+        )
+        return
+
+    if len(neutral_roots) > 1:
+        _merge_roots_with_representative(
+            roots=neutral_roots,
+            merge_key=identity_key,
+            union_find=union_find,
+            root_to_candidate_refs=root_to_candidate_refs,
+            warnings=warnings,
+            emitted_conflicts=emitted_conflicts,
+        )
+
+    if warnings is not None:
+        reference_groups = sorted(
+            tuple(sorted(root_to_candidate_refs[root]))
+            for root in referenced_roots
+        )
+        preview = reference_groups[:5]
+        omitted_count = len(reference_groups) - len(preview)
+        preview_text = repr(preview)
+        if omitted_count:
+            preview_text += f" (+{omitted_count} more)"
+
+        neutral_message = (
+            f" {len(neutral_roots)} reference-free component(s) remain separate "
+            "because their referenced identity is ambiguous."
+            if neutral_roots
+            else ""
+        )
+        warnings.append(
+            "Entity resolution blocked merge on "
+            f"{identity_key!r}: contradictory candidate_ref groups "
+            f"{preview_text}.{neutral_message}"
+        )
+
+
+def _merge_roots_with_representative(
+    *,
+    roots: Iterable[str],
+    merge_key: str,
+    union_find: UnionFind,
+    root_to_candidate_refs: dict[str, set[str]],
+    warnings: list[str] | None,
+    emitted_conflicts: set[tuple[str, str, str]],
+) -> None:
+    root_list = list(roots)
+    if len(root_list) < 2:
+        return
+
+    representative = root_list[0]
+    for root in root_list[1:]:
+        _union_if_candidate_refs_compatible(
+            left_record_id=representative,
+            right_record_id=root,
+            merge_key=merge_key,
+            union_find=union_find,
+            root_to_candidate_refs=root_to_candidate_refs,
+            warnings=warnings,
+            emitted_conflicts=emitted_conflicts,
+        )
 
 
 def _union_if_candidate_refs_compatible(
