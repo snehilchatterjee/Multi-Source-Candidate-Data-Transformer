@@ -1,5 +1,4 @@
-phonenumbers
-requests
-dotenv
-pytest
-jsonschema
+phonenumbers>=8.13,<10
+requests>=2.31,<3
+jsonschema>=4.20,<5
+pytest>=8,<10

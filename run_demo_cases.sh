@@ -3,13 +3,19 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_BIN="${PYTHON_BIN:-/Users/snechatt/miniconda3/envs/ef/bin/python}"
+if [[ -z "${PYTHON_BIN:-}" ]]; then
+  if [[ -x "$SCRIPT_DIR/.venv/bin/python" ]]; then
+    PYTHON_BIN="$SCRIPT_DIR/.venv/bin/python"
+  else
+    PYTHON_BIN="python3"
+  fi
+fi
 SEPARATOR="================================================================================"
 OVERALL_STATUS=0
 
-if [[ ! -x "$PYTHON_BIN" ]]; then
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
   echo "Python executable not found: $PYTHON_BIN" >&2
-  echo "Set PYTHON_BIN to the Python executable from the ef environment." >&2
+  echo "Create .venv as shown in README.md or set PYTHON_BIN explicitly." >&2
   exit 1
 fi
 
