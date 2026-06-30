@@ -13,7 +13,10 @@ from candidate_transformer.core.entity_resolution import (
 )
 from candidate_transformer.core.field_resolution import resolve_canonical_candidates
 from candidate_transformer.core.models import Observation
-from candidate_transformer.core.projection import project_candidate
+from candidate_transformer.core.projection import (
+    project_candidate,
+    validate_projection_config,
+)
 
 
 @dataclass
@@ -51,6 +54,14 @@ def run_candidate_pipeline(
     observations: list[Observation] = []
     warnings: list[str] = []
     errors: list[str] = []
+
+    if projection_config is not None:
+        config_errors = validate_projection_config(projection_config)
+        if config_errors:
+            return PipelineResult(
+                projected_outputs=(),
+                errors=config_errors,
+            )
 
     for csv_path in csv_paths:
         adapter_result = parse_recruiter_csv(

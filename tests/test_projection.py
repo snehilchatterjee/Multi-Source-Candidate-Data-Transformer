@@ -511,3 +511,95 @@ def test_project_candidate_can_read_new_default_schema_fields():
         "portfolio": None,
         "other_links": [],
     }
+
+
+def test_project_candidate_rejects_non_string_global_on_missing():
+    result = project_candidate(
+        make_candidate(),
+        {
+            "fields": [],
+            "on_missing": [],
+        },
+    )
+
+    assert not result.ok
+    assert result.output == {}
+    assert result.errors == ["config.on_missing must be a string"]
+
+
+def test_project_candidate_rejects_non_string_field_on_missing():
+    result = project_candidate(
+        make_candidate(),
+        {
+            "fields": [
+                {
+                    "path": "name",
+                    "from": "full_name",
+                    "on_missing": [],
+                }
+            ]
+        },
+    )
+
+    assert not result.ok
+    assert result.output == {}
+    assert result.errors == [
+        "config.fields[0].on_missing must be a string"
+    ]
+
+
+def test_project_candidate_rejects_non_boolean_top_level_option():
+    result = project_candidate(
+        make_candidate(),
+        {
+            "fields": [
+                {
+                    "path": "name",
+                    "from": "full_name",
+                }
+            ],
+            "include_confidence": "yes",
+        },
+    )
+
+    assert not result.ok
+    assert result.output == {}
+    assert result.errors == ["config.include_confidence must be a boolean"]
+
+
+def test_project_candidate_rejects_non_string_field_type():
+    result = project_candidate(
+        make_candidate(),
+        {
+            "fields": [
+                {
+                    "path": "name",
+                    "from": "full_name",
+                    "type": [],
+                }
+            ]
+        },
+    )
+
+    assert not result.ok
+    assert result.output == {}
+    assert result.errors == ["config.fields[0].type must be a string"]
+
+
+def test_project_candidate_rejects_non_boolean_required():
+    result = project_candidate(
+        make_candidate(),
+        {
+            "fields": [
+                {
+                    "path": "name",
+                    "from": "full_name",
+                    "required": "false",
+                }
+            ]
+        },
+    )
+
+    assert not result.ok
+    assert result.output == {}
+    assert result.errors == ["config.fields[0].required must be a boolean"]

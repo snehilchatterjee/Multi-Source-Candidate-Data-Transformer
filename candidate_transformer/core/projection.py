@@ -9,6 +9,15 @@ MISSING = object()
 
 SUPPORTED_MISSING_POLICIES = {"null", "omit", "error"}
 SUPPORTED_NORMALIZERS = {"E164", "canonical"}
+SUPPORTED_TYPES = {
+    "any",
+    "string",
+    "number",
+    "boolean",
+    "object",
+    "array",
+    "string[]",
+}
 
 PATH_PART_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d*)\])?$")
 
@@ -45,19 +54,15 @@ def project_candidate(candidate: Any, config: Mapping[str, Any]) -> ProjectionRe
 
     result = ProjectionResult(output={})
 
+    config_errors = validate_projection_config(config)
+    if config_errors:
+        result.errors.extend(config_errors)
+        return result
+
     root = _to_jsonable(candidate.to_dict() if hasattr(candidate, "to_dict") else candidate)
 
     fields = config.get("fields")
-    if not isinstance(fields, list):
-        result.errors.append("config.fields must be a list")
-        return result
-
     global_on_missing = config.get("on_missing", "null")
-    if global_on_missing not in SUPPORTED_MISSING_POLICIES:
-        result.errors.append(
-            f"config.on_missing must be one of {sorted(SUPPORTED_MISSING_POLICIES)}"
-        )
-        return result
 
     for index, field_spec in enumerate(fields):
         if not isinstance(field_spec, Mapping):
@@ -81,6 +86,109 @@ def project_candidate(candidate: Any, config: Mapping[str, Any]) -> ProjectionRe
     return result
 
 
+def validate_projection_config(config: Any) -> list[str]:
+    """Validate config structure without requiring a candidate to project."""
+
+    if not isinstance(config, Mapping):
+        return ["config must be an object"]
+
+    errors: list[str] = []
+
+    fields = config.get("fields")
+    if not isinstance(fields, list):
+        errors.append("config.fields must be a list")
+
+    global_on_missing = config.get("on_missing", "null")
+    if not isinstance(global_on_missing, str):
+        errors.append("config.on_missing must be a string")
+    elif global_on_missing not in SUPPORTED_MISSING_POLICIES:
+        errors.append(
+            f"config.on_missing must be one of {sorted(SUPPORTED_MISSING_POLICIES)}"
+        )
+
+    for option_name in ("include_confidence", "include_provenance"):
+        option_value = config.get(option_name, False)
+        if not isinstance(option_value, bool):
+            errors.append(f"config.{option_name} must be a boolean")
+
+    if not isinstance(fields, list):
+        return errors
+
+    valid_global_on_missing = (
+        global_on_missing
+        if (
+            isinstance(global_on_missing, str)
+            and global_on_missing in SUPPORTED_MISSING_POLICIES
+        )
+        else "null"
+    )
+
+    for index, field_spec in enumerate(fields):
+        if not isinstance(field_spec, Mapping):
+            errors.append(f"config.fields[{index}] must be an object")
+            continue
+
+        errors.extend(
+            _validate_field_spec(
+                field_spec,
+                index=index,
+                global_on_missing=valid_global_on_missing,
+            )
+        )
+
+    return errors
+
+
+def _validate_field_spec(
+    field_spec: Mapping[str, Any],
+    *,
+    index: int,
+    global_on_missing: str,
+) -> list[str]:
+    errors: list[str] = []
+    output_path = field_spec.get("path")
+    from_path = field_spec.get("from", output_path)
+    expected_type = field_spec.get("type", "any")
+    required = field_spec.get("required", False)
+    on_missing = field_spec.get("on_missing", global_on_missing)
+    normalize_rule = field_spec.get("normalize")
+
+    if not isinstance(output_path, str) or not output_path:
+        errors.append(f"config.fields[{index}].path must be a non-empty string")
+
+    if not isinstance(from_path, str) or not from_path:
+        errors.append(f"config.fields[{index}].from must be a non-empty string")
+
+    if not isinstance(expected_type, str):
+        errors.append(f"config.fields[{index}].type must be a string")
+    elif expected_type not in SUPPORTED_TYPES:
+        errors.append(
+            f"config.fields[{index}].type must be one of {sorted(SUPPORTED_TYPES)}"
+        )
+
+    if not isinstance(required, bool):
+        errors.append(f"config.fields[{index}].required must be a boolean")
+
+    if not isinstance(on_missing, str):
+        errors.append(f"config.fields[{index}].on_missing must be a string")
+    elif on_missing not in SUPPORTED_MISSING_POLICIES:
+        errors.append(
+            f"config.fields[{index}].on_missing must be one of "
+            f"{sorted(SUPPORTED_MISSING_POLICIES)}"
+        )
+
+    if normalize_rule is not None:
+        if not isinstance(normalize_rule, str):
+            errors.append(f"config.fields[{index}].normalize must be a string")
+        elif normalize_rule not in SUPPORTED_NORMALIZERS:
+            errors.append(
+                f"config.fields[{index}].normalize must be one of "
+                f"{sorted(SUPPORTED_NORMALIZERS)}"
+            )
+
+    return errors
+
+
 def _project_one_field(
     *,
     root: dict[str, Any],
@@ -92,38 +200,9 @@ def _project_one_field(
     output_path = field_spec.get("path")
     from_path = field_spec.get("from", output_path)
     expected_type = field_spec.get("type", "any")
-    required = bool(field_spec.get("required", False))
+    required = field_spec.get("required", False)
     on_missing = field_spec.get("on_missing", global_on_missing)
     normalize_rule = field_spec.get("normalize")
-
-    if not isinstance(output_path, str) or not output_path:
-        result.errors.append(f"config.fields[{index}].path must be a non-empty string")
-        return
-
-    if not isinstance(from_path, str) or not from_path:
-        result.errors.append(f"config.fields[{index}].from must be a non-empty string")
-        return
-
-    if on_missing not in SUPPORTED_MISSING_POLICIES:
-        result.errors.append(
-            f"config.fields[{index}].on_missing must be one of "
-            f"{sorted(SUPPORTED_MISSING_POLICIES)}"
-        )
-        return
-    
-    if normalize_rule is not None:
-        if not isinstance(normalize_rule, str):
-            result.errors.append(
-                f"config.fields[{index}].normalize must be a string"
-            )
-            return
-
-        if normalize_rule not in SUPPORTED_NORMALIZERS:
-            result.errors.append(
-                f"config.fields[{index}].normalize must be one of "
-                f"{sorted(SUPPORTED_NORMALIZERS)}"
-            )
-            return
 
     try:
         value = _read_path(root, from_path)

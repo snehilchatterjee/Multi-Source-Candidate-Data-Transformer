@@ -301,3 +301,16 @@ def test_pipeline_warns_and_separates_conflicting_candidate_refs(tmp_path):
         "Bob Example",
     }
     assert any("contradictory candidate_ref" in warning for warning in result.warnings)
+
+
+def test_pipeline_rejects_malformed_projection_config_without_inputs():
+    result = run_candidate_pipeline(
+        projection_config={
+            "fields": [],
+            "on_missing": [],
+        }
+    )
+
+    assert not result.ok
+    assert result.projected_outputs == ()
+    assert result.errors == ["config.on_missing must be a string"]

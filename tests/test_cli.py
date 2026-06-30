@@ -175,6 +175,39 @@ def test_cli_projection_error_returns_nonzero(tmp_path):
     assert exit_code == 1
     assert not output_path.exists()
 
+
+def test_cli_malformed_projection_config_returns_error_instead_of_raising(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email\nAlex Chen,alex@example.com\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "fields": [],
+                "on_missing": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "output.json"
+
+    exit_code = main(
+        [
+            "--csv",
+            str(csv_path),
+            "--config",
+            str(config_path),
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    assert exit_code == 1
+    assert not output_path.exists()
+
 def test_cli_allow_partial_writes_valid_candidates(tmp_path):
     csv_path = tmp_path / "candidates.csv"
     csv_path.write_text(
