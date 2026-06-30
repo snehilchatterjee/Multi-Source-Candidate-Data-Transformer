@@ -1,0 +1,16 @@
+{
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "email": "alex@example.com",
+      "name": "Alex Chen",
+      "overall_confidence": 0.87,
+      "skills": [
+        "Kubernetes",
+        "Python"
+      ]
+    }
+  ],
+  "kind": "projected",
+  "warnings": []
+}

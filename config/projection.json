@@ -1,0 +1,23 @@
+{
+  "fields": [
+    {
+      "path": "name",
+      "from": "full_name",
+      "type": "string",
+      "required": true
+    },
+    {
+      "path": "email",
+      "from": "emails[0]",
+      "type": "string",
+      "required": true
+    },
+    {
+      "path": "skills",
+      "from": "skills[].name",
+      "type": "string[]"
+    }
+  ],
+  "include_confidence": true,
+  "on_missing": "null"
+}
