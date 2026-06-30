@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from candidate_transformer.adapters.github_profile import (
     observations_from_github_payload,
 )
@@ -137,6 +139,29 @@ def test_pipeline_does_not_guess_region_for_local_phone(tmp_path):
     assert explicit_candidate.primary_phone == "+16502530000"
     assert explicit_candidate.phone_confidence == 0.90
     assert explicit_candidate.overall_confidence > unknown_candidate.overall_confidence
+
+
+def test_pipeline_does_not_emit_malformed_fixture_email():
+    csv_path = (
+        Path(__file__).parents[1]
+        / "sample_dataset"
+        / "recruiter_export_messy.csv"
+    )
+
+    result = run_candidate_pipeline(
+        csv_paths=[csv_path],
+        default_phone_region="IN",
+    )
+    theo = next(
+        candidate
+        for candidate in result.canonical_candidates
+        if candidate.full_name == "Theo Martin"
+    )
+
+    assert theo.emails == ()
+    assert theo.primary_email is None
+    assert theo.email_resolution_status == "missing"
+    assert theo.email_confidence == 0.0
 
 
 def test_pipeline_missing_required_projection_field_becomes_error(tmp_path):

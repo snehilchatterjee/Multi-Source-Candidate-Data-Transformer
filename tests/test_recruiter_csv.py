@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from candidate_transformer.adapters.recruiter_csv import parse_recruiter_csv
 
 
@@ -61,6 +63,25 @@ def test_parse_recruiter_csv_invalid_values_become_warnings(tmp_path):
     assert not any(obs.field_path == "emails" for obs in result.observations)
     assert not any(obs.field_path == "phones" for obs in result.observations)
     assert not any(obs.field_path == "links.github" for obs in result.observations)
+
+
+def test_messy_fixture_rejects_consecutive_dot_email():
+    csv_path = (
+        Path(__file__).parents[1]
+        / "sample_dataset"
+        / "recruiter_export_messy.csv"
+    )
+
+    result = parse_recruiter_csv(csv_path, default_phone_region="IN")
+
+    assert not any(
+        obs.field_path == "emails"
+        and obs.normalized_value == "theo.martin@example..com"
+        for obs in result.observations
+    )
+    assert any(
+        "theo.martin@example..com" in warning for warning in result.warnings
+    )
 
 
 def test_parse_recruiter_csv_supports_column_aliases(tmp_path):

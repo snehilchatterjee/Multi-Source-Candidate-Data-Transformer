@@ -7,7 +7,11 @@ from urllib.parse import urlparse, urlunparse
 import phonenumbers
 
 
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+EMAIL_LOCAL_RE = re.compile(r"^[a-z0-9!#$%&'*+/=?^_`{|}~.-]+$")
+EMAIL_DOMAIN_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+EMAIL_MAX_LENGTH = 254
+EMAIL_LOCAL_MAX_LENGTH = 64
+EMAIL_DOMAIN_MAX_LENGTH = 253
 
 
 SKILL_ALIASES = {
@@ -48,10 +52,40 @@ def normalize_email(value: str | None) -> str | None:
     if not email:
         return None
 
-    if not EMAIL_RE.match(email):
+    if len(email) > EMAIL_MAX_LENGTH or email.count("@") != 1:
         return None
 
-    return email
+    local, domain = email.split("@", 1)
+
+    if not local or len(local) > EMAIL_LOCAL_MAX_LENGTH:
+        return None
+
+    if (
+        not EMAIL_LOCAL_RE.fullmatch(local)
+        or local.startswith(".")
+        or local.endswith(".")
+        or ".." in local
+    ):
+        return None
+
+    try:
+        ascii_domain = domain.encode("idna").decode("ascii")
+    except UnicodeError:
+        return None
+
+    if (
+        not ascii_domain
+        or len(ascii_domain) > EMAIL_DOMAIN_MAX_LENGTH
+        or "." not in ascii_domain
+    ):
+        return None
+
+    labels = ascii_domain.split(".")
+    if any(not EMAIL_DOMAIN_LABEL_RE.fullmatch(label) for label in labels):
+        return None
+
+    normalized = f"{local}@{ascii_domain}"
+    return normalized if len(normalized) <= EMAIL_MAX_LENGTH else None
 
 
 def normalize_name(value: str | None) -> str | None:

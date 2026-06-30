@@ -10,7 +10,18 @@ from candidate_transformer.core.normalize import (
 
 def test_normalize_email():
     assert normalize_email(" ALEX.CHEN@Example.com ") == "alex.chen@example.com"
+    assert normalize_email("alex+jobs@example-domain.com") == (
+        "alex+jobs@example-domain.com"
+    )
+    assert normalize_email("o'connor@example.com") == "o'connor@example.com"
     assert normalize_email("not-an-email") is None
+    assert normalize_email("theo.martin@example..com") is None
+    assert normalize_email("theo..martin@example.com") is None
+    assert normalize_email(".theo@example.com") is None
+    assert normalize_email("theo.@example.com") is None
+    assert normalize_email("theo@-example.com") is None
+    assert normalize_email("theo@example-.com") is None
+    assert normalize_email("theo@exam_ple.com") is None
     assert normalize_email("") is None
     assert normalize_email(None) is None
 
