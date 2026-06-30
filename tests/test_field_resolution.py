@@ -1,5 +1,8 @@
 from candidate_transformer.core.entity_resolution import resolve_candidate_clusters
-from candidate_transformer.core.field_resolution import resolve_canonical_candidate
+from candidate_transformer.core.field_resolution import (
+    OVERALL_CONFIDENCE_WEIGHTS,
+    resolve_canonical_candidate,
+)
 from candidate_transformer.core.models import Observation, SourceRef
 
 
@@ -31,6 +34,18 @@ def make_candidate(observations: list[Observation]):
     clusters = resolve_candidate_clusters(observations)
     assert len(clusters) == 1
     return resolve_canonical_candidate(clusters[0])
+
+
+def test_overall_confidence_weights():
+    assert OVERALL_CONFIDENCE_WEIGHTS == {
+        "name": 0.15,
+        "email": 0.25,
+        "phone": 0.10,
+        "github": 0.20,
+        "skills": 0.15,
+        "experience": 0.15,
+    }
+    assert sum(OVERALL_CONFIDENCE_WEIGHTS.values()) == 1.0
 
 
 def test_resolve_basic_canonical_candidate():

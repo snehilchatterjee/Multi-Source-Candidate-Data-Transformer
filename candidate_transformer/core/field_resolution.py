@@ -33,6 +33,15 @@ SOURCE_PRIORITY = {
     "github_profile": 3,
 }
 
+OVERALL_CONFIDENCE_WEIGHTS = {
+    "name": 0.15,
+    "email": 0.25,
+    "phone": 0.10,
+    "github": 0.20,
+    "skills": 0.15,
+    "experience": 0.15,
+}
+
 EMAIL_FIRST_NOTES_CORROBORATION_BONUS = 0.03
 EMAIL_ADDITIONAL_NOTES_CORROBORATION_BONUS = 0.01
 EMAIL_ADDITIONAL_APPLICATION_BONUS = 0.02
@@ -1041,12 +1050,12 @@ def _calculate_overall_confidence(
     )
 
     score = (
-        0.20 * name_confidence
-        + 0.25 * email_confidence
-        + 0.15 * phone_confidence
-        + 0.10 * github_confidence
-        + 0.15 * skills_confidence
-        + 0.15 * experience_confidence
+        OVERALL_CONFIDENCE_WEIGHTS["name"] * name_confidence
+        + OVERALL_CONFIDENCE_WEIGHTS["email"] * email_confidence
+        + OVERALL_CONFIDENCE_WEIGHTS["phone"] * phone_confidence
+        + OVERALL_CONFIDENCE_WEIGHTS["github"] * github_confidence
+        + OVERALL_CONFIDENCE_WEIGHTS["skills"] * skills_confidence
+        + OVERALL_CONFIDENCE_WEIGHTS["experience"] * experience_confidence
     )
 
     return clamp_confidence(score)
