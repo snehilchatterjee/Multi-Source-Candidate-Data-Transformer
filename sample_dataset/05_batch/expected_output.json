@@ -6,7 +6,7 @@
       "candidate_id": "cand_30b26525bde7e942",
       "github": null,
       "name": "Vikram Singh",
-      "overall_confidence": 0.78,
+      "overall_confidence": 0.69,
       "primary_email": "vikram.singh@example.com",
       "skills": [
         "AWS",
@@ -30,7 +30,7 @@
       "candidate_id": "cand_a20895296367c2c5",
       "github": null,
       "name": "Asha Rao",
-      "overall_confidence": 0.78,
+      "overall_confidence": 0.69,
       "primary_email": "asha.rao@example.com",
       "skills": [
         "GCP",
