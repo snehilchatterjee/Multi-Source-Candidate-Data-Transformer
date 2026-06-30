@@ -30,6 +30,40 @@ def test_parse_recruiter_note_text_basic():
     assert ("skills", "Distributed Systems") in values
 
 
+def test_parse_recruiter_note_text_extracts_labeled_candidate_urls():
+    result = parse_recruiter_note_text(
+        "LinkedIn: linkedin.com/in/alex-chen\n"
+        "Portfolio: alex.dev\n"
+        "Website: https://www.alex.dev/\n"
+        "Blog: blog.alex.dev\n"
+        "Other link: https://speakerdeck.com/alex\n"
+        "Interview link: https://meet.example.com/interview"
+    )
+
+    values = [
+        (observation.field_path, observation.normalized_value)
+        for observation in result.observations
+        if observation.field_path.startswith("links.")
+    ]
+
+    assert ("links.linkedin", "https://linkedin.com/in/alex-chen") in values
+    assert values.count(("links.portfolio", "https://alex.dev")) == 1
+    assert ("links.other", "https://blog.alex.dev") in values
+    assert ("links.other", "https://speakerdeck.com/alex") in values
+    assert not any("meet.example.com" in value for _, value in values)
+
+
+def test_parse_recruiter_note_text_ignores_unlabeled_generic_url():
+    result = parse_recruiter_note_text(
+        "Review the job description at https://jobs.example.com/backend-role."
+    )
+
+    assert not any(
+        observation.field_path in {"links.portfolio", "links.other"}
+        for observation in result.observations
+    )
+
+
 def test_parse_recruiter_note_warns_for_labeled_local_phone_without_region():
     result = parse_recruiter_note_text("Phone: 6502530000")
 

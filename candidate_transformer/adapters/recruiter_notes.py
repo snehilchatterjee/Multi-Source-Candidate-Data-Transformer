@@ -13,6 +13,7 @@ from candidate_transformer.core.normalize import (
     normalize_email,
     normalize_github_url,
     normalize_skill,
+    normalize_url,
 )
 
 
@@ -22,6 +23,23 @@ EMAIL_FIND_RE = re.compile(
 
 GITHUB_FIND_RE = re.compile(
     r"(?:https?://)?(?:www\.)?github\.com/[A-Za-z0-9-]+(?:/[^\s,)]*)?",
+    re.IGNORECASE,
+)
+
+LINKEDIN_FIND_RE = re.compile(
+    r"(?:https?://)?(?:www\.)?linkedin\.com/in/[A-Za-z0-9_%.-]+"
+    r"(?:/[^\s,;)]*)?",
+    re.IGNORECASE,
+)
+
+URL_VALUE_PATTERN = (
+    r"(?:(?:https?://|www\.)[^\s,;<>\[\]{}()]+|"
+    r"(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}(?:/[^\s,;<>\[\]{}()]*)?)"
+)
+LABELED_PROFILE_URL_RE = re.compile(
+    rf"\b(?P<label>portfolio(?:\s+(?:url|link))?|website|homepage|"
+    rf"personal\s+(?:site|website)|blog|other\s+(?:url|link))"
+    rf"\s*[:=-]\s*(?P<url>{URL_VALUE_PATTERN})",
     re.IGNORECASE,
 )
 
@@ -170,6 +188,7 @@ def parse_recruiter_note_text(
     _extract_emails(text, source_id, record_id, result)
     _extract_phones(text, source_id, record_id, default_phone_region, result)
     _extract_github_urls(text, source_id, record_id, result)
+    _extract_profile_urls(text, source_id, record_id, result)
     _extract_skills(text, source_id, record_id, result)
 
     return result
@@ -320,6 +339,86 @@ def _extract_github_urls(
                 confidence=confidence_for("recruiter_notes", "regex_url"),
             )
         )
+
+
+def _extract_profile_urls(
+    text: str,
+    source_id: str,
+    record_id: str,
+    result: AdapterResult,
+) -> None:
+    """Extract candidate links without treating every URL as a portfolio.
+
+    LinkedIn profile URLs are recognizable from their domain. Other domains
+    require an explicit candidate-oriented label so job postings, meeting
+    links, and company URLs are not silently classified as personal links.
+    """
+
+    seen: dict[str, set[str]] = {
+        "links.linkedin": set(),
+        "links.portfolio": set(),
+        "links.other": set(),
+    }
+
+    for match in LINKEDIN_FIND_RE.finditer(text):
+        raw_value = _trim_url(match.group(0))
+        normalized = normalize_url(raw_value)
+        if normalized is None or normalized in seen["links.linkedin"]:
+            continue
+
+        seen["links.linkedin"].add(normalized)
+        result.observations.append(
+            _make_observation(
+                record_id=record_id,
+                field_path="links.linkedin",
+                raw_value=raw_value,
+                normalized_value=normalized,
+                source_id=source_id,
+                span=(match.start(), match.start() + len(raw_value)),
+                method="regex_linkedin_profile_url -> normalize_url",
+                confidence=confidence_for("recruiter_notes", "regex_url"),
+            )
+        )
+
+    for match in LABELED_PROFILE_URL_RE.finditer(text):
+        raw_value = _trim_url(match.group("url"))
+        normalized = normalize_url(raw_value)
+        if normalized is None:
+            continue
+
+        # Dedicated extractors own these domains, preventing one URL from
+        # appearing in both a named field and links.other.
+        if normalized.startswith("https://github.com/") or normalized.startswith(
+            "https://linkedin.com/in/"
+        ):
+            continue
+
+        label = " ".join(match.group("label").lower().split())
+        field_path = (
+            "links.other"
+            if label == "blog" or label.startswith("other ")
+            else "links.portfolio"
+        )
+        if normalized in seen[field_path]:
+            continue
+
+        seen[field_path].add(normalized)
+        result.observations.append(
+            _make_observation(
+                record_id=record_id,
+                field_path=field_path,
+                raw_value=raw_value,
+                normalized_value=normalized,
+                source_id=source_id,
+                span=(match.start("url"), match.start("url") + len(raw_value)),
+                method=f"labeled_{label.replace(' ', '_')}_url -> normalize_url",
+                confidence=confidence_for("recruiter_notes", "regex_url"),
+            )
+        )
+
+
+def _trim_url(value: str) -> str:
+    return value.rstrip(".,;:!?\"'\u2019]})")
 
 
 def _extract_skills(

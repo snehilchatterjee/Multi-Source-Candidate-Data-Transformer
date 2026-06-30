@@ -7,6 +7,29 @@ from candidate_transformer.core.models import AdapterResult
 from candidate_transformer.pipeline import run_candidate_pipeline
 
 
+def test_pipeline_places_recruiter_note_urls_in_final_links(tmp_path):
+    note_path = tmp_path / "alex.txt"
+    note_path.write_text(
+        "LinkedIn: linkedin.com/in/alex-chen\n"
+        "Portfolio: alex.dev\n"
+        "Blog: blog.alex.dev\n"
+        "Other link: speakerdeck.com/alex\n",
+        encoding="utf-8",
+    )
+
+    result = run_candidate_pipeline(note_paths=[note_path])
+
+    assert result.ok
+    assert len(result.canonical_candidates) == 1
+    links = result.canonical_candidates[0].links
+    assert links.linkedin == "https://linkedin.com/in/alex-chen"
+    assert links.portfolio == "https://alex.dev"
+    assert links.other == (
+        "https://blog.alex.dev",
+        "https://speakerdeck.com/alex",
+    )
+
+
 def test_pipeline_csv_and_notes_end_to_end(tmp_path):
     csv_path = tmp_path / "candidates.csv"
     csv_path.write_text(
