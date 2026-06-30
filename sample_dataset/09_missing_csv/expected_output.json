@@ -1,0 +1,25 @@
+{
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "cand_8154a66c8ee74c53",
+      "email": "jordan.lee@example.com",
+      "email_resolution_status": "unstructured_only",
+      "github": "https://github.com/jordanlee",
+      "overall_confidence": 0.44,
+      "phone": "+16502530000",
+      "phone_resolution_status": "unstructured_only",
+      "primary_email": null,
+      "primary_phone": null,
+      "skills": [
+        "Docker",
+        "PostgreSQL",
+        "Python"
+      ]
+    }
+  ],
+  "errors": [],
+  "kind": "projected",
+  "status": "success",
+  "warnings": []
+}

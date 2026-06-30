@@ -97,6 +97,10 @@ run_case "08_diagnostics" \
   --config "$SCRIPT_DIR/sample_dataset/08_diagnostics/config.json" \
   --allow-partial
 
+run_case "09_missing_csv" \
+  --manifest "$SCRIPT_DIR/sample_dataset/09_missing_csv/manifest.json" \
+  --config "$SCRIPT_DIR/sample_dataset/09_missing_csv/config.json"
+
 echo "$SEPARATOR"
 if [[ $OVERALL_STATUS -eq 0 ]]; then
   echo "ALL DEMO CASES MATCHED"

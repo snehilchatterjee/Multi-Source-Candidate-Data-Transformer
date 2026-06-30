@@ -1,0 +1,15 @@
+{
+  "fields": [
+    {"path": "candidate_id", "type": "string", "required": true},
+    {"path": "email", "from": "emails[0]", "type": "string", "required": true},
+    {"path": "primary_email", "type": "string"},
+    {"path": "email_resolution_status", "type": "string", "required": true},
+    {"path": "phone", "from": "phones[0]", "type": "string"},
+    {"path": "primary_phone", "type": "string"},
+    {"path": "phone_resolution_status", "type": "string", "required": true},
+    {"path": "github", "from": "links.github", "type": "string"},
+    {"path": "skills", "from": "skills[].name", "type": "string[]"}
+  ],
+  "include_confidence": true,
+  "on_missing": "null"
+}

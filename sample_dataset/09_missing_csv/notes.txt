@@ -1,0 +1,2 @@
+Candidate contact: jordan.lee@example.com and +1 650 253 0000.
+GitHub: github.com/jordanlee. Strong in Python, Docker, and PostgreSQL.
