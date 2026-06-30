@@ -26,6 +26,26 @@ def test_parse_recruiter_csv_basic(tmp_path):
     assert ("links.github", "https://github.com/alexchen") in values
 
 
+def test_parse_recruiter_csv_normalizes_company_legal_suffix(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email,current_company,title\n"
+        "Alex Chen,alex@example.com,Google LLC,Software Engineer\n",
+        encoding="utf-8",
+    )
+
+    result = parse_recruiter_csv(csv_path)
+    company = next(
+        observation
+        for observation in result.observations
+        if observation.field_path == "experience.company"
+    )
+
+    assert company.raw_value == "Google LLC"
+    assert company.normalized_value == "Google"
+    assert company.method.endswith("normalize_company")
+
+
 def test_parse_recruiter_csv_skips_null_values(tmp_path):
     csv_path = tmp_path / "candidates.csv"
     csv_path.write_text(

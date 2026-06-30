@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import datetime, timezone
 from urllib.parse import urlparse, urlunparse
 
@@ -41,6 +42,32 @@ SKILL_ALIASES = {
     "mongodb": "MongoDB",
     "redis": "Redis",
 }
+
+
+# Suffix removal deliberately covers only common legal designators. It does
+# not contain parent-company or brand aliases: names such as "Alphabet" and
+# "Google" must remain distinct unless a caller supplies stronger evidence.
+COMPANY_LEGAL_SUFFIX_PATTERNS = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r",?\s+private\s+limited\.?$",
+        r",?\s+pvt\.?\s+ltd\.?$",
+        r",?\s+public\s+limited\s+company\.?$",
+        r",?\s+pte\.?\s+ltd\.?$",
+        r",?\s+l\.?\s*l\.?\s*c\.?$",
+        r",?\s+l\.?\s*l\.?\s*p\.?$",
+        r",?\s+p\.?\s*l\.?\s*c\.?$",
+        r",?\s+incorporated\.?$",
+        r",?\s+corporation\.?$",
+        r",?\s+limited\.?$",
+        r",?\s+inc\.?$",
+        r",?\s+corp\.?$",
+        r",?\s+ltd\.?$",
+        r",?\s+gmbh\.?$",
+        r",?\s+s\.?\s*a\.?$",
+        r",?\s+a\.?\s*g\.?$",
+    )
+)
 
 
 def normalize_email(value: str | None) -> str | None:
@@ -98,6 +125,58 @@ def normalize_name(value: str | None) -> str | None:
         return None
 
     return name
+
+
+def normalize_company(value: str | None) -> str | None:
+    """Remove superficial formatting and trailing legal designators.
+
+    This intentionally does not attempt corporate-family resolution. For
+    example, ``Google LLC`` normalizes to ``Google`` while ``Alphabet`` stays
+    ``Alphabet``.
+    """
+
+    normalized = normalize_name(value)
+    if normalized is None:
+        return None
+
+    normalized = unicodedata.normalize("NFKC", normalized).strip(" ,;:-")
+    previous = None
+    while normalized and normalized != previous:
+        previous = normalized
+        for suffix_pattern in COMPANY_LEGAL_SUFFIX_PATTERNS:
+            normalized = suffix_pattern.sub("", normalized).strip(" ,;:-")
+
+    return normalized or None
+
+
+def company_identity_key(value: str | None) -> str | None:
+    """Return a case/punctuation-insensitive key for an obvious company alias."""
+
+    normalized = normalize_company(value)
+    if normalized is None:
+        return None
+
+    key = "".join(
+        character if character.isalnum() else " "
+        for character in normalized.casefold()
+    )
+    key = " ".join(key.split())
+    return key or None
+
+
+def title_identity_key(value: str | None) -> str | None:
+    """Normalize only superficial title differences; preserve distinct roles."""
+
+    normalized = normalize_name(value)
+    if normalized is None:
+        return None
+
+    key = "".join(
+        character if character.isalnum() else " "
+        for character in normalized.casefold()
+    )
+    key = " ".join(key.split())
+    return key or None
 
 
 def normalize_phone(

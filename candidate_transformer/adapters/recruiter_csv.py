@@ -9,6 +9,7 @@ from candidate_transformer.core.models import AdapterResult, Observation, Source
 from candidate_transformer.core.normalize import (
     normalize_application_time,
     normalize_candidate_ref,
+    normalize_company,
     normalize_email,
     normalize_github_url,
     normalize_name,
@@ -291,7 +292,7 @@ def _parse_row(
     company_cell = _get_cell(row, header_lookup, COLUMN_ALIASES["experience.company"])
     if company_cell is not None:
         raw_value, column = company_cell
-        normalized = normalize_name(raw_value)
+        normalized = normalize_company(raw_value)
         if normalized is not None:
             result.observations.append(
                 _make_observation(
@@ -302,7 +303,7 @@ def _parse_row(
                     source_id=source_id,
                     row_number=row_number,
                     column=column,
-                    method=f"csv_column:{column} -> normalize_text",
+                    method=f"csv_column:{column} -> normalize_company",
                     confidence=confidence_for("recruiter_csv", "explicit_company_or_title"), # company could've changed
                 )
             )

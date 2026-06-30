@@ -99,6 +99,88 @@ def test_resolve_basic_canonical_candidate():
     assert candidate.provenance
 
 
+def test_workplace_aliases_deduplicate_only_matching_roles():
+    observations: list[Observation] = []
+    workplaces = [
+        ("r1", "Google", "Software Engineer"),
+        ("r2", "Google LLC", "Senior Backend Engineer"),
+        ("r3", "GOOGLE L.L.C.", "software engineer"),
+        ("r4", "Alphabet", "Backend Engineer"),
+    ]
+
+    for record_id, company, title in workplaces:
+        observations.extend(
+            [
+                make_observation(
+                    record_id=record_id,
+                    field_path="candidate_ref",
+                    value="C001",
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="experience.company",
+                    value=company,
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="experience.title",
+                    value=title,
+                ),
+            ]
+        )
+
+    candidate = make_candidate(observations)
+    workplaces_by_title = {
+        experience.title: experience.company
+        for experience in candidate.experience
+    }
+
+    assert workplaces_by_title == {
+        "Backend Engineer": "Alphabet",
+        "Senior Backend Engineer": "Google",
+        "Software Engineer": "Google",
+    }
+
+    software_engineer = next(
+        experience
+        for experience in candidate.experience
+        if experience.title == "Software Engineer"
+    )
+    assert len(software_engineer.sources) == 1
+
+
+def test_same_workplace_and_title_with_different_dates_remain_separate():
+    observations: list[Observation] = []
+    for record_id, company, start, end in (
+        ("r1", "Google", "2020", "2021"),
+        ("r2", "Google LLC", "2023", "2024"),
+    ):
+        for field_path, value in (
+            ("candidate_ref", "C001"),
+            ("experience.company", company),
+            ("experience.title", "Software Engineer"),
+            ("experience.start", start),
+            ("experience.end", end),
+        ):
+            observations.append(
+                make_observation(
+                    record_id=record_id,
+                    field_path=field_path,
+                    value=value,
+                )
+            )
+
+    candidate = make_candidate(observations)
+
+    assert [
+        (experience.company, experience.title, experience.start, experience.end)
+        for experience in candidate.experience
+    ] == [
+        ("Google", "Software Engineer", "2020", "2021"),
+        ("Google", "Software Engineer", "2023", "2024"),
+    ]
+
+
 def test_same_email_records_are_unioned():
     observations = [
         make_observation(

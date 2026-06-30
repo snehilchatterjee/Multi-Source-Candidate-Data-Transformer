@@ -18,6 +18,12 @@ from candidate_transformer.core.canonical import (
 from candidate_transformer.core.confidence import clamp_confidence
 from candidate_transformer.core.entity_resolution import CandidateCluster
 from candidate_transformer.core.models import Observation
+from candidate_transformer.core.normalize import (
+    company_identity_key,
+    normalize_company,
+    normalize_name,
+    title_identity_key,
+)
 
 
 SOURCE_PRIORITY = {
@@ -727,34 +733,79 @@ def _resolve_experience(
             by_record[obs.record_id]["company"].append(obs)
         elif obs.field_path == "experience.title":
             by_record[obs.record_id]["title"].append(obs)
+        elif obs.field_path == "experience.start":
+            by_record[obs.record_id]["start"].append(obs)
+        elif obs.field_path == "experience.end":
+            by_record[obs.record_id]["end"].append(obs)
 
     experience_observation_groups: dict[
-        tuple[str | None, str | None],
-        list[Observation],
-    ] = defaultdict(list)
+        tuple[str, str, str | None, str | None],
+        dict[str, list[Observation]],
+    ] = defaultdict(lambda: defaultdict(list))
 
     for record_id in sorted(by_record):
         company_obs = _best_observation(by_record[record_id].get("company", []))
         title_obs = _best_observation(by_record[record_id].get("title", []))
+        start_obs = _best_observation(by_record[record_id].get("start", []))
+        end_obs = _best_observation(by_record[record_id].get("end", []))
 
         company = _value(company_obs) if company_obs is not None else None
         title = _value(title_obs) if title_obs is not None else None
+        start = _value(start_obs) if start_obs is not None else None
+        end = _value(end_obs) if end_obs is not None else None
 
         if company is None and title is None:
             continue
 
-        key = (company, title)
+        # Organization equivalence is deliberately narrow: case, punctuation,
+        # whitespace, and trailing legal suffixes. Different base names (for
+        # example Google and Alphabet) never merge here, even if their dates
+        # happen to overlap.
+        company_key = company_identity_key(company)
+        title_key = title_identity_key(title)
+        key = (
+            company_key or f"missing-company:{record_id}",
+            title_key or f"missing-title:{record_id}",
+            start.casefold() if start else None,
+            end.casefold() if end else None,
+        )
 
         if company_obs is not None:
-            experience_observation_groups[key].append(company_obs)
+            experience_observation_groups[key]["company"].append(company_obs)
 
         if title_obs is not None:
-            experience_observation_groups[key].append(title_obs)
+            experience_observation_groups[key]["title"].append(title_obs)
+
+        if start_obs is not None:
+            experience_observation_groups[key]["start"].append(start_obs)
+
+        if end_obs is not None:
+            experience_observation_groups[key]["end"].append(end_obs)
 
     experiences: list[CanonicalExperience] = []
     provenance: list[ProvenanceRecord] = []
 
-    for (company, title), group_observations in experience_observation_groups.items():
+    for field_groups in experience_observation_groups.values():
+        company_observations = field_groups.get("company", [])
+        title_observations = field_groups.get("title", [])
+        start_observations = field_groups.get("start", [])
+        end_observations = field_groups.get("end", [])
+        group_observations = [
+            *company_observations,
+            *title_observations,
+            *start_observations,
+            *end_observations,
+        ]
+
+        company_obs = _best_company_observation(company_observations)
+        title_obs = _best_observation(title_observations)
+        start_obs = _best_observation(start_observations)
+        end_obs = _best_observation(end_observations)
+        company = normalize_company(_value(company_obs))
+        title = normalize_name(_value(title_obs))
+        start = _value(start_obs)
+        end = _value(end_obs)
+
         confidence = clamp_confidence(
             sum(obs.confidence for obs in group_observations)
             / len(group_observations)
@@ -776,6 +827,8 @@ def _resolve_experience(
             CanonicalExperience(
                 company=company,
                 title=title,
+                start=start,
+                end=end,
                 confidence=confidence,
                 sources=source_labels,
             )
@@ -797,6 +850,30 @@ def _resolve_experience(
         ),
         provenance,
     )
+
+
+def _best_company_observation(
+    observations: Iterable[Observation],
+) -> Observation | None:
+    candidates = list(observations)
+    if not candidates:
+        return None
+
+    def sort_key(obs: Observation) -> tuple[float, int, int, str, str]:
+        value = normalize_company(_value(obs)) or ""
+        if value.isupper() or value.islower():
+            casing_penalty = 1
+        else:
+            casing_penalty = 0
+        return (
+            -obs.confidence,
+            casing_penalty,
+            SOURCE_PRIORITY.get(obs.source.source_type, 99),
+            value.casefold(),
+            obs.source.locator or "",
+        )
+
+    return sorted(candidates, key=sort_key)[0]
 
 
 def _field_observations(

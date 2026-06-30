@@ -1,4 +1,6 @@
 from candidate_transformer.core.normalize import (
+    company_identity_key,
+    normalize_company,
     normalize_email,
     normalize_github_url,
     normalize_name,
@@ -30,6 +32,19 @@ def test_normalize_name():
     assert normalize_name("  Alex   Chen  ") == "Alex Chen"
     assert normalize_name("") is None
     assert normalize_name(None) is None
+
+
+def test_normalize_company_removes_only_superficial_legal_variants():
+    assert normalize_company(" Google LLC ") == "Google"
+    assert normalize_company("Google, L.L.C.") == "Google"
+    assert normalize_company("Acme Pvt. Ltd.") == "Acme"
+    assert normalize_company("Alphabet") == "Alphabet"
+    assert company_identity_key("GOOGLE L.L.C.") == "google"
+    assert company_identity_key("Google") == "google"
+    assert company_identity_key("Alphabet") == "alphabet"
+    assert company_identity_key("München GmbH") == "münchen"
+    assert normalize_company("The Honest Company") == "The Honest Company"
+    assert normalize_company("") is None
 
 
 def test_normalize_phone():
