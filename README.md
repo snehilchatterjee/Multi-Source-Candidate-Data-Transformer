@@ -2,6 +2,10 @@
 
 A Python CLI that merges recruiter CSV and recruiter-note data into validated candidate profiles. It supports canonical output and runtime-configured output projection.
 
+## System design
+
+![Candidate Transformer system design](docs/SystemDesign.drawio.png)
+
 ## Setup
 
 Requires Python 3.10 or newer.
@@ -61,5 +65,3 @@ python -m candidate_transformer \
 ```
 
 Use `python -m candidate_transformer --help` for all options. GitHub enrichment is optional; enable it with `--enrich-github` and optionally set `GITHUB_TOKEN`.
-
-The required one-page technical design is available at [`docs/SnehilChatterjee_snehil.chatterjee@oracle.com_Eightfold.pdf`](docs/SnehilChatterjee_snehil.chatterjee@oracle.com_Eightfold.pdf).
