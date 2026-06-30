@@ -244,3 +244,38 @@ def test_duplicate_experience_is_deduped():
     assert len(candidate.experience) == 1
     assert candidate.experience[0].company == "Acme"
     assert candidate.experience[0].title == "Engineer"
+
+
+def test_canonical_candidate_contains_full_default_schema():
+    observations = [
+        make_observation(
+            record_id="r1",
+            field_path="full_name",
+            value="Alex Chen",
+        ),
+        make_observation(
+            record_id="r1",
+            field_path="emails",
+            value="alex@example.com",
+        ),
+    ]
+
+    candidate = make_candidate(observations)
+    candidate_dict = candidate.to_dict()
+
+    assert candidate_dict["location"] == {
+        "city": None,
+        "region": None,
+        "country": None,
+    }
+
+    assert candidate_dict["headline"] is None
+    assert candidate_dict["years_experience"] is None
+    assert candidate_dict["education"] == ()
+
+    assert candidate_dict["links"] == {
+        "linkedin": None,
+        "github": None,
+        "portfolio": None,
+        "other": (),
+    }

@@ -5,7 +5,9 @@ from typing import Iterable
 
 from candidate_transformer.core.canonical import (
     CandidateLinks,
+    CandidateLocation,
     CanonicalCandidate,
+    CanonicalEducation,
     CanonicalExperience,
     CanonicalSkill,
     ProvenanceRecord,
@@ -79,9 +81,13 @@ def resolve_canonical_candidate(cluster: CandidateCluster) -> CanonicalCandidate
         full_name=full_name,
         emails=emails,
         phones=phones,
+        location=CandidateLocation(),
         links=CandidateLinks(github=github),
+        headline=None,
+        years_experience=None,
         skills=skills,
         experience=experience,
+        education=(),
         provenance=_dedupe_provenance(provenance),
         overall_confidence=overall_confidence,
     )

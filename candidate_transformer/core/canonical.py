@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
@@ -16,8 +16,18 @@ class ProvenanceRecord:
 
 
 @dataclass(frozen=True)
+class CandidateLocation:
+    city: str | None = None
+    region: str | None = None
+    country: str | None = None
+
+
+@dataclass(frozen=True)
 class CandidateLinks:
+    linkedin: str | None = None
     github: str | None = None
+    portfolio: str | None = None
+    other: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -39,6 +49,16 @@ class CanonicalExperience:
 
 
 @dataclass(frozen=True)
+class CanonicalEducation:
+    institution: str | None = None
+    degree: str | None = None
+    field: str | None = None
+    end_year: int | None = None
+    confidence: float = 0.0
+    sources: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class CanonicalCandidate:
     candidate_id: str
     full_name: str | None
@@ -49,6 +69,13 @@ class CanonicalCandidate:
     experience: tuple[CanonicalExperience, ...]
     provenance: tuple[ProvenanceRecord, ...]
     overall_confidence: float
+
+    # Fields required by the assignment's fixed canonical schema.
+    # Current MVP adapters may not populate these yet, but the schema should expose them.
+    location: CandidateLocation = field(default_factory=CandidateLocation)
+    headline: str | None = None
+    years_experience: float | None = None
+    education: tuple[CanonicalEducation, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

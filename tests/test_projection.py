@@ -334,3 +334,64 @@ def test_project_candidate_e164_normalization_rejects_invalid_phone():
     assert not result.ok
     assert len(result.errors) == 1
     assert "could not normalize" in result.errors[0]
+
+def test_project_candidate_can_read_new_default_schema_fields():
+    candidate = make_candidate()
+
+    config = {
+        "fields": [
+            {
+                "path": "location",
+                "from": "location",
+                "type": "object",
+            },
+            {
+                "path": "headline",
+                "from": "headline",
+                "type": "string",
+            },
+            {
+                "path": "years_experience",
+                "from": "years_experience",
+                "type": "number",
+            },
+            {
+                "path": "education",
+                "from": "education",
+                "type": "array",
+            },
+            {
+                "path": "linkedin",
+                "from": "links.linkedin",
+                "type": "string",
+            },
+            {
+                "path": "portfolio",
+                "from": "links.portfolio",
+                "type": "string",
+            },
+            {
+                "path": "other_links",
+                "from": "links.other",
+                "type": "array",
+            },
+        ],
+        "on_missing": "null",
+    }
+
+    result = project_candidate(candidate, config)
+
+    assert result.ok
+    assert result.output == {
+        "location": {
+            "city": None,
+            "region": None,
+            "country": None,
+        },
+        "headline": None,
+        "years_experience": None,
+        "education": [],
+        "linkedin": None,
+        "portfolio": None,
+        "other_links": [],
+    }
