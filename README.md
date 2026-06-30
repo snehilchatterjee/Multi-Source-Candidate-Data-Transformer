@@ -41,6 +41,29 @@ The generated examples are committed at:
 - [`out/default.json`](out/default.json)
 - [`out/candidates.json`](out/candidates.json)
 
+## Strict mode versus `--allow-partial`
+
+Strict mode is the default. If any pipeline error occurs, the CLI prints the error to stderr, exits with status `1`, and does not write the output file. Warnings do not stop output.
+
+Use `--allow-partial` when valid candidates should still be written even if other inputs or candidates fail:
+
+```bash
+python -m candidate_transformer \
+  --manifest sample_dataset/08_diagnostics/manifest.json \
+  --config sample_dataset/08_diagnostics/config.json \
+  --output out/partial.json \
+  --allow-partial
+```
+
+| Result | Output status | Exit status | Output written? |
+| --- | --- | ---: | --- |
+| No errors | `success` | `0` | Yes |
+| Errors, with at least one valid candidate and `--allow-partial` | `partial_success` | `0` | Yes, including `errors` and valid candidates |
+| Errors, with no valid candidates and `--allow-partial` | `failed` | `1` | Yes, including `errors` |
+| Any pipeline error in strict mode | — | `1` | No |
+
+Configuration or manifest files that cannot be read or parsed fail immediately with exit status `1`, even when `--allow-partial` is supplied.
+
 ## Test
 
 ```bash
