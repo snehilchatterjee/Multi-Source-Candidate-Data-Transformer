@@ -7,6 +7,7 @@ from pathlib import Path
 
 from candidate_transformer.core.models import AdapterResult, Observation, SourceRef
 from candidate_transformer.core.normalize import (
+    normalize_application_time,
     normalize_candidate_ref,
     normalize_email,
     normalize_github_url,
@@ -33,6 +34,21 @@ COLUMN_ALIASES = {
     "experience.company": ["current_company", "company", "employer"],
     "experience.title": ["title", "current_title", "job_title", "role"],
     "links.github": ["github", "github_url", "github_profile"],
+    "application.applied_at": [
+        "applied_at",
+        "application_date",
+        "applied_date",
+        "submitted_at",
+        "submission_date",
+        "application_timestamp",
+        "created_at",
+    ],
+    "application.id": [
+        "application_id",
+        "application_ref",
+        "submission_id",
+        "application_number",
+    ],
 }
 
 
@@ -105,7 +121,7 @@ def _parse_row(
     default_phone_region: str,
     result: AdapterResult,
 ) -> None:
-        # candidate_ref
+    # candidate_ref
     candidate_ref_cell = _get_cell(row, header_lookup, COLUMN_ALIASES["candidate_ref"])
     if candidate_ref_cell is not None:
         raw_value, column = candidate_ref_cell
@@ -172,6 +188,66 @@ def _parse_row(
                     column=column,
                     method=f"csv_column:{column} -> normalize_email",
                     confidence=confidence_for("recruiter_csv", "explicit_email"), # could be recruiter typed or wrong email
+                )
+            )
+
+    # Application identity/time are evidence used to distinguish repeated
+    # applications and resolve competing CSV emails. They are not candidate
+    # profile fields.
+    application_ref_cell = _get_cell(
+        row,
+        header_lookup,
+        COLUMN_ALIASES["application.id"],
+    )
+    if application_ref_cell is not None:
+        raw_value, column = application_ref_cell
+        normalized = normalize_candidate_ref(raw_value)
+        if normalized is not None:
+            result.observations.append(
+                _make_observation(
+                    record_id=record_id,
+                    field_path="application.id",
+                    raw_value=raw_value,
+                    normalized_value=normalized,
+                    source_id=source_id,
+                    row_number=row_number,
+                    column=column,
+                    method=f"csv_column:{column} -> normalize_application_ref",
+                    confidence=confidence_for(
+                        "recruiter_csv",
+                        "explicit_application_ref",
+                    ),
+                )
+            )
+
+    application_time_cell = _get_cell(
+        row,
+        header_lookup,
+        COLUMN_ALIASES["application.applied_at"],
+    )
+    if application_time_cell is not None:
+        raw_value, column = application_time_cell
+        normalized = normalize_application_time(raw_value)
+        if normalized is None:
+            result.warnings.append(
+                f"Invalid application time at row={row_number}, "
+                f"column={column}: {raw_value!r}"
+            )
+        else:
+            result.observations.append(
+                _make_observation(
+                    record_id=record_id,
+                    field_path="application.applied_at",
+                    raw_value=raw_value,
+                    normalized_value=normalized,
+                    source_id=source_id,
+                    row_number=row_number,
+                    column=column,
+                    method=f"csv_column:{column} -> normalize_application_time",
+                    confidence=confidence_for(
+                        "recruiter_csv",
+                        "explicit_application_time",
+                    ),
                 )
             )
 

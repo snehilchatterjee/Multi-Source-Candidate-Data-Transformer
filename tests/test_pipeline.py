@@ -170,3 +170,34 @@ def test_pipeline_uses_candidate_ref_to_join_csv_and_note_without_shared_identif
     skill_names = {skill.name for skill in candidate.skills}
 
     assert skill_names == {"Kubernetes", "Python"}
+
+
+def test_pipeline_notes_vote_resolves_multiple_csv_application_emails(tmp_path):
+    csv_path = tmp_path / "applications.csv"
+    csv_path.write_text(
+        "candidate_ref,name,email\n"
+        "C001,Alex Chen,first@example.com\n"
+        "C001,Alex Chen,supported@example.com\n"
+        "C001,Alex Chen,third@example.com\n",
+        encoding="utf-8",
+    )
+    note_path = tmp_path / "alex.txt"
+    note_path.write_text(
+        "Reach Alex at supported@example.com.",
+        encoding="utf-8",
+    )
+
+    result = run_candidate_pipeline(
+        csv_paths=[csv_path],
+        note_paths=[note_path],
+    )
+
+    assert result.ok
+    assert len(result.canonical_candidates) == 1
+    candidate = result.canonical_candidates[0]
+    assert candidate.primary_email == "supported@example.com"
+    assert candidate.secondary_emails == (
+        "first@example.com",
+        "third@example.com",
+    )
+    assert candidate.email_details[0].confidence == 0.98

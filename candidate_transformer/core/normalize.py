@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 from urllib.parse import urlparse, urlunparse
 
 import phonenumbers
@@ -188,3 +189,39 @@ def normalize_candidate_ref(value: str | None) -> str | None:
         return None
 
     return ref
+
+
+def normalize_application_time(value: str | None) -> str | None:
+    """Normalize unambiguous application dates/timestamps to UTC ISO-8601."""
+
+    if value is None:
+        return None
+
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    normalized_input = raw[:-1] + "+00:00" if raw.endswith(("Z", "z")) else raw
+
+    try:
+        parsed = datetime.fromisoformat(normalized_input)
+    except ValueError:
+        parsed = None
+
+    if parsed is None:
+        for date_format in ("%Y/%m/%d", "%Y%m%d"):
+            try:
+                parsed = datetime.strptime(raw, date_format)
+                break
+            except ValueError:
+                continue
+
+    if parsed is None:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    else:
+        parsed = parsed.astimezone(timezone.utc)
+
+    return parsed.isoformat().replace("+00:00", "Z")

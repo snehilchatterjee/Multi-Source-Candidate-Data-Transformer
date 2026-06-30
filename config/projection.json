@@ -8,7 +8,7 @@
     },
     {
       "path": "email",
-      "from": "emails[0]",
+      "from": "primary_email",
       "type": "string",
       "required": true
     },

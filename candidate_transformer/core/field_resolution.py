@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Iterable
 
 from candidate_transformer.core.canonical import (
@@ -8,6 +9,7 @@ from candidate_transformer.core.canonical import (
     CandidateLocation,
     CanonicalCandidate,
     CanonicalEducation,
+    CanonicalEmail,
     CanonicalExperience,
     CanonicalSkill,
     ProvenanceRecord,
@@ -23,6 +25,38 @@ SOURCE_PRIORITY = {
     "recruiter_notes": 2,
     "github_profile": 3,
 }
+
+EMAIL_FIRST_NOTES_CORROBORATION_BONUS = 0.03
+EMAIL_ADDITIONAL_NOTES_CORROBORATION_BONUS = 0.01
+EMAIL_ADDITIONAL_APPLICATION_BONUS = 0.02
+EMAIL_MAX_CORROBORATION_BONUS = 0.05
+EMAIL_MAX_RESOLVED_CONFIDENCE = 0.99
+EMAIL_STATUS_CONFIDENCE_MULTIPLIER = {
+    "resolved": 1.00,
+    "ambiguous": 0.50,
+    "unstructured_only": 0.75,
+    "missing": 0.00,
+}
+
+
+@dataclass(frozen=True)
+class _EmailCandidate:
+    detail: CanonicalEmail
+    has_csv_observation: bool
+    notes_source_count: int
+    application_count: int
+
+
+@dataclass(frozen=True)
+class _EmailResolution:
+    groups: dict[str, list[Observation]]
+    emails: tuple[str, ...]
+    primary_email: str | None
+    secondary_emails: tuple[str, ...]
+    details: tuple[CanonicalEmail, ...]
+    status: str
+    selection_reason: str | None
+    effective_confidence: float
 
 
 def resolve_canonical_candidates(
@@ -46,9 +80,16 @@ def resolve_canonical_candidate(cluster: CandidateCluster) -> CanonicalCandidate
         provenance.append(_provenance_from_observation(full_name_obs))
 
     # Multi-value fields: collect, dedupe, sort.
-    email_groups = _group_by_value(_field_observations(observations, "emails"))
-    emails = _sorted_group_values(email_groups)
-    provenance.extend(_provenance_for_groups(email_groups))
+    email_resolution = _resolve_emails(observations)
+    provenance.extend(_provenance_for_groups(email_resolution.groups))
+    provenance.extend(
+        _provenance_from_observation(obs)
+        for obs in _field_observations(observations, "application.applied_at")
+    )
+    provenance.extend(
+        _provenance_from_observation(obs)
+        for obs in _field_observations(observations, "application.id")
+    )
 
     phone_groups = _group_by_value(_field_observations(observations, "phones"))
     phones = _sorted_group_values(phone_groups)
@@ -69,7 +110,7 @@ def resolve_canonical_candidate(cluster: CandidateCluster) -> CanonicalCandidate
 
     overall_confidence = _calculate_overall_confidence(
         full_name_obs=full_name_obs,
-        email_groups=email_groups,
+        email_confidence=email_resolution.effective_confidence,
         phone_groups=phone_groups,
         github_obs=github_obs,
         skills=skills,
@@ -79,7 +120,7 @@ def resolve_canonical_candidate(cluster: CandidateCluster) -> CanonicalCandidate
     return CanonicalCandidate(
         candidate_id=cluster.cluster_id,
         full_name=full_name,
-        emails=emails,
+        emails=email_resolution.emails,
         phones=phones,
         location=CandidateLocation(),
         links=CandidateLinks(github=github),
@@ -90,7 +131,276 @@ def resolve_canonical_candidate(cluster: CandidateCluster) -> CanonicalCandidate
         education=(),
         provenance=_dedupe_provenance(provenance),
         overall_confidence=overall_confidence,
+        primary_email=email_resolution.primary_email,
+        secondary_emails=email_resolution.secondary_emails,
+        email_details=email_resolution.details,
+        email_resolution_status=email_resolution.status,
+        email_selection_reason=email_resolution.selection_reason,
+        email_confidence=email_resolution.effective_confidence,
     )
+
+
+def _resolve_emails(observations: list[Observation]) -> _EmailResolution:
+    groups = _group_by_value(_field_observations(observations, "emails"))
+
+    if not groups:
+        return _EmailResolution(
+            groups={},
+            emails=(),
+            primary_email=None,
+            secondary_emails=(),
+            details=(),
+            status="missing",
+            selection_reason=None,
+            effective_confidence=0.0,
+        )
+
+    record_application_times = _record_application_times(observations)
+    record_application_keys = _record_application_keys(
+        observations,
+        record_application_times,
+    )
+    candidates: list[_EmailCandidate] = []
+
+    for value, email_observations in groups.items():
+        max_confidence = max(obs.confidence for obs in email_observations)
+        has_csv_observation = any(
+            obs.source.source_type == "recruiter_csv"
+            for obs in email_observations
+        )
+        notes_sources = {
+            (obs.source.source_type, obs.source.source_id)
+            for obs in email_observations
+            if obs.source.source_type == "recruiter_notes"
+        }
+
+        application_keys = {
+            record_application_keys[obs.record_id]
+            for obs in email_observations
+            if (
+                obs.source.source_type == "recruiter_csv"
+                and obs.record_id in record_application_keys
+            )
+        }
+
+        notes_bonus = 0.0
+        if has_csv_observation and notes_sources:
+            notes_bonus = EMAIL_FIRST_NOTES_CORROBORATION_BONUS
+            notes_bonus += EMAIL_ADDITIONAL_NOTES_CORROBORATION_BONUS * (
+                len(notes_sources) - 1
+            )
+
+        application_bonus = EMAIL_ADDITIONAL_APPLICATION_BONUS * max(
+            0,
+            len(application_keys) - 1,
+        )
+        corroboration_bonus = min(
+            notes_bonus + application_bonus,
+            EMAIL_MAX_CORROBORATION_BONUS,
+        )
+
+        latest_application_at = _latest_csv_application_time(
+            email_observations,
+            record_application_times,
+        )
+        sources = tuple(
+            sorted(
+                {
+                    f"{obs.source.source_type}:{obs.source.source_id}"
+                    for obs in email_observations
+                }
+            )
+        )
+
+        candidates.append(
+            _EmailCandidate(
+                detail=CanonicalEmail(
+                    value=value,
+                    confidence=min(
+                        EMAIL_MAX_RESOLVED_CONFIDENCE,
+                        clamp_confidence(max_confidence + corroboration_bonus),
+                    ),
+                    sources=sources,
+                    latest_application_at=latest_application_at,
+                    distinct_application_count=len(application_keys),
+                    corroborating_notes_count=len(notes_sources),
+                ),
+                has_csv_observation=has_csv_observation,
+                notes_source_count=len(notes_sources),
+                application_count=len(application_keys),
+            )
+        )
+
+    ranked = _rank_email_candidates(candidates)
+    csv_candidates = [candidate for candidate in ranked if candidate.has_csv_observation]
+    primary: _EmailCandidate | None = None
+    status = "ambiguous"
+    reason: str | None = None
+
+    if not csv_candidates:
+        status = "unstructured_only"
+        reason = "no_structured_csv_email"
+    elif len(csv_candidates) == 1:
+        primary = csv_candidates[0]
+        status = "resolved"
+        reason = (
+            "csv_email_corroborated_by_notes"
+            if primary.notes_source_count
+            else (
+                "repeated_distinct_applications"
+                if primary.application_count > 1
+                else "only_csv_email"
+            )
+        )
+    else:
+        contenders = csv_candidates
+        recency_is_complete = all(
+            candidate.detail.latest_application_at is not None
+            for candidate in csv_candidates
+        )
+
+        if recency_is_complete:
+            latest_application_at = max(
+                candidate.detail.latest_application_at or ""
+                for candidate in csv_candidates
+            )
+            latest_candidates = [
+                candidate
+                for candidate in csv_candidates
+                if candidate.detail.latest_application_at == latest_application_at
+            ]
+            if len(latest_candidates) == 1:
+                primary = latest_candidates[0]
+                status = "resolved"
+                reason = "latest_csv_application"
+            else:
+                contenders = latest_candidates
+
+        if primary is None:
+            highest_confidence = max(
+                candidate.detail.confidence for candidate in contenders
+            )
+            highest_candidates = [
+                candidate
+                for candidate in contenders
+                if candidate.detail.confidence == highest_confidence
+            ]
+            if len(highest_candidates) == 1:
+                primary = highest_candidates[0]
+                status = "resolved"
+                reason = (
+                    "csv_email_corroborated_by_notes"
+                    if primary.notes_source_count
+                    else (
+                        "repeated_distinct_applications"
+                        if primary.application_count > 1
+                        else "highest_email_confidence"
+                    )
+                )
+            else:
+                status = "ambiguous"
+                reason = "equal_csv_email_evidence"
+
+    if primary is not None:
+        ranked = [primary] + [candidate for candidate in ranked if candidate != primary]
+
+    emails = tuple(candidate.detail.value for candidate in ranked)
+    primary_email = primary.detail.value if primary is not None else None
+    secondary_emails = tuple(email for email in emails if email != primary_email)
+
+    strongest_confidence = max(
+        candidate.detail.confidence for candidate in candidates
+    )
+    selected_confidence = (
+        primary.detail.confidence if primary is not None else strongest_confidence
+    )
+    effective_confidence = clamp_confidence(
+        selected_confidence * EMAIL_STATUS_CONFIDENCE_MULTIPLIER[status]
+    )
+
+    return _EmailResolution(
+        groups=groups,
+        emails=emails,
+        primary_email=primary_email,
+        secondary_emails=secondary_emails,
+        details=tuple(candidate.detail for candidate in ranked),
+        status=status,
+        selection_reason=reason,
+        effective_confidence=effective_confidence,
+    )
+
+
+def _record_application_times(observations: list[Observation]) -> dict[str, str]:
+    by_record: dict[str, list[str]] = defaultdict(list)
+
+    for obs in observations:
+        if obs.field_path != "application.applied_at":
+            continue
+        value = _value(obs)
+        if value is not None:
+            by_record[obs.record_id].append(value)
+
+    return {
+        record_id: max(application_times)
+        for record_id, application_times in by_record.items()
+    }
+
+
+def _record_application_keys(
+    observations: list[Observation],
+    record_application_times: dict[str, str],
+) -> dict[str, str]:
+    application_ids: dict[str, list[str]] = defaultdict(list)
+
+    for obs in observations:
+        if obs.field_path != "application.id":
+            continue
+        value = _value(obs)
+        if value is not None:
+            application_ids[obs.record_id].append(value)
+
+    record_ids = {
+        obs.record_id
+        for obs in observations
+        if obs.source.source_type == "recruiter_csv"
+    }
+    output: dict[str, str] = {}
+
+    for record_id in record_ids:
+        if application_ids.get(record_id):
+            output[record_id] = f"id:{min(application_ids[record_id])}"
+        elif record_id in record_application_times:
+            output[record_id] = f"time:{record_application_times[record_id]}"
+
+    return output
+
+
+def _latest_csv_application_time(
+    email_observations: list[Observation],
+    record_application_times: dict[str, str],
+) -> str | None:
+    application_times = [
+        record_application_times[obs.record_id]
+        for obs in email_observations
+        if (
+            obs.source.source_type == "recruiter_csv"
+            and obs.record_id in record_application_times
+        )
+    ]
+    return max(application_times) if application_times else None
+
+
+def _rank_email_candidates(
+    candidates: list[_EmailCandidate],
+) -> list[_EmailCandidate]:
+    # Stable sorts produce confidence desc, application time desc, value asc.
+    ranked = sorted(candidates, key=lambda candidate: candidate.detail.value)
+    ranked.sort(
+        key=lambda candidate: candidate.detail.latest_application_at or "",
+        reverse=True,
+    )
+    ranked.sort(key=lambda candidate: candidate.detail.confidence, reverse=True)
+    return ranked
 
 
 def _resolve_skills(
@@ -362,7 +672,7 @@ def _dedupe_provenance(
 def _calculate_overall_confidence(
     *,
     full_name_obs: Observation | None,
-    email_groups: dict[str, list[Observation]],
+    email_confidence: float,
     phone_groups: dict[str, list[Observation]],
     github_obs: Observation | None,
     skills: tuple[CanonicalSkill, ...],
@@ -375,7 +685,6 @@ def _calculate_overall_confidence(
     """
 
     name_confidence = full_name_obs.confidence if full_name_obs is not None else 0.0
-    email_confidence = _best_group_confidence(email_groups)
     phone_confidence = _best_group_confidence(phone_groups)
     github_confidence = github_obs.confidence if github_obs is not None else 0.0
 

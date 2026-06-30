@@ -118,3 +118,50 @@ def test_parse_recruiter_csv_extracts_candidate_ref(tmp_path):
     assert ("candidate_ref", "C001") in values
     assert ("full_name", "Alex Chen") in values
     assert ("emails", "alex@example.com") in values
+
+
+def test_parse_recruiter_csv_extracts_application_time_alias(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "candidate_ref,email,submitted_at\n"
+        "C001,alex@example.com,2026-06-30T10:15:00+05:30\n",
+        encoding="utf-8",
+    )
+
+    result = parse_recruiter_csv(csv_path)
+    values = {(obs.field_path, obs.normalized_value) for obs in result.observations}
+
+    assert result.warnings == []
+    assert ("application.applied_at", "2026-06-30T04:45:00Z") in values
+
+
+def test_parse_recruiter_csv_invalid_application_time_becomes_warning(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "candidate_ref,email,application_date\n"
+        "C001,alex@example.com,not-a-date\n",
+        encoding="utf-8",
+    )
+
+    result = parse_recruiter_csv(csv_path)
+
+    assert len(result.warnings) == 1
+    assert "Invalid application time" in result.warnings[0]
+    assert not any(
+        obs.field_path == "application.applied_at"
+        for obs in result.observations
+    )
+
+
+def test_parse_recruiter_csv_extracts_application_id_alias(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "candidate_ref,application_number,email\n"
+        "C001,APP-42,alex@example.com\n",
+        encoding="utf-8",
+    )
+
+    result = parse_recruiter_csv(csv_path)
+    values = {(obs.field_path, obs.normalized_value) for obs in result.observations}
+
+    assert ("application.id", "APP-42") in values

@@ -164,6 +164,364 @@ def test_scalar_field_chooses_highest_confidence_value():
     assert candidate.full_name == "Alex Chen"
 
 
+def test_notes_corroboration_selects_primary_among_equal_csv_emails():
+    observations = [
+        make_observation(
+            record_id="csv_1",
+            field_path="candidate_ref",
+            value="C001",
+            confidence=0.95,
+        ),
+        make_observation(
+            record_id="csv_1",
+            field_path="emails",
+            value="first@example.com",
+            confidence=0.95,
+        ),
+        make_observation(
+            record_id="csv_2",
+            field_path="candidate_ref",
+            value="C001",
+            confidence=0.95,
+        ),
+        make_observation(
+            record_id="csv_2",
+            field_path="emails",
+            value="supported@example.com",
+            confidence=0.95,
+        ),
+        make_observation(
+            record_id="note_1",
+            field_path="emails",
+            value="supported@example.com",
+            confidence=0.76,
+            source_type="recruiter_notes",
+            source_id="alex.txt",
+        ),
+    ]
+
+    candidate = make_candidate(observations)
+
+    assert candidate.primary_email == "supported@example.com"
+    assert candidate.secondary_emails == ("first@example.com",)
+    assert candidate.emails == (
+        "supported@example.com",
+        "first@example.com",
+    )
+    assert candidate.email_resolution_status == "resolved"
+    assert candidate.email_selection_reason == "csv_email_corroborated_by_notes"
+    assert candidate.email_details[0].confidence == 0.98
+    assert candidate.email_details[0].sources == (
+        "recruiter_csv:test.csv",
+        "recruiter_notes:alex.txt",
+    )
+
+
+def test_latest_complete_csv_application_wins_over_corroborated_old_email():
+    observations = [
+        make_observation(
+            record_id="csv_old",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="csv_old",
+            field_path="emails",
+            value="old@example.com",
+            confidence=0.95,
+        ),
+        make_observation(
+            record_id="csv_old",
+            field_path="application.applied_at",
+            value="2025-01-01T00:00:00Z",
+            confidence=0.90,
+        ),
+        make_observation(
+            record_id="csv_new",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="csv_new",
+            field_path="emails",
+            value="new@example.com",
+            confidence=0.95,
+        ),
+        make_observation(
+            record_id="csv_new",
+            field_path="application.applied_at",
+            value="2026-01-01T00:00:00Z",
+            confidence=0.90,
+        ),
+        make_observation(
+            record_id="note_1",
+            field_path="emails",
+            value="old@example.com",
+            confidence=0.76,
+            source_type="recruiter_notes",
+            source_id="old-note.txt",
+        ),
+    ]
+
+    candidate = make_candidate(observations)
+
+    assert candidate.primary_email == "new@example.com"
+    assert candidate.secondary_emails == ("old@example.com",)
+    assert candidate.email_selection_reason == "latest_csv_application"
+    assert candidate.email_details[0].latest_application_at == (
+        "2026-01-01T00:00:00Z"
+    )
+    assert candidate.email_details[1].confidence == 0.98
+
+
+def test_incomplete_recency_falls_back_to_corroboration():
+    observations = [
+        make_observation(
+            record_id="csv_dated",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="csv_dated",
+            field_path="emails",
+            value="dated@example.com",
+            confidence=0.95,
+        ),
+        make_observation(
+            record_id="csv_dated",
+            field_path="application.applied_at",
+            value="2026-01-01T00:00:00Z",
+        ),
+        make_observation(
+            record_id="csv_undated",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="csv_undated",
+            field_path="emails",
+            value="supported@example.com",
+            confidence=0.95,
+        ),
+        make_observation(
+            record_id="note",
+            field_path="emails",
+            value="supported@example.com",
+            confidence=0.76,
+            source_type="recruiter_notes",
+            source_id="note.txt",
+        ),
+    ]
+
+    candidate = make_candidate(observations)
+
+    assert candidate.primary_email == "supported@example.com"
+    assert candidate.email_selection_reason == "csv_email_corroborated_by_notes"
+
+
+def test_equal_csv_email_evidence_is_left_ambiguous():
+    observations = [
+        make_observation(
+            record_id="csv_1",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="csv_1",
+            field_path="emails",
+            value="first@example.com",
+            confidence=0.95,
+        ),
+        make_observation(
+            record_id="csv_2",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="csv_2",
+            field_path="emails",
+            value="second@example.com",
+            confidence=0.95,
+        ),
+    ]
+
+    candidate = make_candidate(observations)
+
+    assert candidate.primary_email is None
+    assert candidate.secondary_emails == (
+        "first@example.com",
+        "second@example.com",
+    )
+    assert candidate.email_resolution_status == "ambiguous"
+    assert candidate.email_selection_reason == "equal_csv_email_evidence"
+
+
+def test_notes_only_email_is_preserved_but_not_promoted_to_primary():
+    candidate = make_candidate(
+        [
+            make_observation(
+                record_id="note",
+                field_path="emails",
+                value="notes@example.com",
+                confidence=0.76,
+                source_type="recruiter_notes",
+                source_id="note.txt",
+            )
+        ]
+    )
+
+    assert candidate.primary_email is None
+    assert candidate.secondary_emails == ("notes@example.com",)
+    assert candidate.email_resolution_status == "unstructured_only"
+
+
+def test_email_corroboration_bonus_is_bounded_and_sources_are_distinct():
+    observations = [
+        make_observation(
+            record_id="csv",
+            field_path="emails",
+            value="alex@example.com",
+            confidence=0.95,
+        )
+    ]
+    for index in range(10):
+        observations.append(
+            make_observation(
+                record_id=f"note_{index}",
+                field_path="emails",
+                value="alex@example.com",
+                confidence=0.76,
+                source_type="recruiter_notes",
+                source_id=f"note-{index}.txt",
+            )
+        )
+
+    candidate = make_candidate(observations)
+
+    assert candidate.email_details[0].confidence == 0.99
+
+
+def test_distinct_application_ids_add_email_support():
+    observations = []
+    for record_id, application_id, email in (
+        ("csv_1", "APP-1", "repeated@example.com"),
+        ("csv_2", "APP-2", "repeated@example.com"),
+        ("csv_3", "APP-3", "other@example.com"),
+    ):
+        observations.extend(
+            [
+                make_observation(
+                    record_id=record_id,
+                    field_path="candidate_ref",
+                    value="C001",
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="application.id",
+                    value=application_id,
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="emails",
+                    value=email,
+                    confidence=0.95,
+                ),
+            ]
+        )
+
+    candidate = make_candidate(observations)
+
+    assert candidate.primary_email == "repeated@example.com"
+    assert candidate.email_selection_reason == "repeated_distinct_applications"
+    assert candidate.email_details[0].confidence == 0.97
+    assert candidate.email_details[0].distinct_application_count == 2
+
+
+def test_duplicate_rows_with_same_application_id_do_not_add_support():
+    observations = []
+    for record_id, application_id, email in (
+        ("csv_1", "APP-1", "duplicate@example.com"),
+        ("csv_2", "APP-1", "duplicate@example.com"),
+        ("csv_3", "APP-2", "other@example.com"),
+    ):
+        observations.extend(
+            [
+                make_observation(
+                    record_id=record_id,
+                    field_path="candidate_ref",
+                    value="C001",
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="application.id",
+                    value=application_id,
+                ),
+                make_observation(
+                    record_id=record_id,
+                    field_path="emails",
+                    value=email,
+                    confidence=0.95,
+                ),
+            ]
+        )
+
+    candidate = make_candidate(observations)
+
+    assert candidate.primary_email is None
+    assert candidate.email_resolution_status == "ambiguous"
+    assert all(detail.confidence == 0.95 for detail in candidate.email_details)
+    duplicate_detail = next(
+        detail
+        for detail in candidate.email_details
+        if detail.value == "duplicate@example.com"
+    )
+    assert duplicate_detail.distinct_application_count == 1
+
+
+def test_email_resolution_status_affects_email_and_overall_confidence():
+    resolved = make_candidate(
+        [
+            make_observation(
+                record_id="resolved",
+                field_path="emails",
+                value="resolved@example.com",
+                confidence=0.95,
+            )
+        ]
+    )
+    ambiguous = make_candidate(
+        [
+            make_observation(
+                record_id="ambiguous_1",
+                field_path="candidate_ref",
+                value="C001",
+            ),
+            make_observation(
+                record_id="ambiguous_1",
+                field_path="emails",
+                value="one@example.com",
+                confidence=0.95,
+            ),
+            make_observation(
+                record_id="ambiguous_2",
+                field_path="candidate_ref",
+                value="C001",
+            ),
+            make_observation(
+                record_id="ambiguous_2",
+                field_path="emails",
+                value="two@example.com",
+                confidence=0.95,
+            ),
+        ]
+    )
+
+    assert resolved.email_confidence == 0.95
+    assert ambiguous.email_confidence < ambiguous.email_details[0].confidence
+    assert ambiguous.email_confidence == 0.47
+    assert resolved.overall_confidence > ambiguous.overall_confidence
+
+
 def test_skills_are_deduped_and_corroborated():
     observations = [
         make_observation(
@@ -272,6 +630,9 @@ def test_canonical_candidate_contains_full_default_schema():
     assert candidate_dict["headline"] is None
     assert candidate_dict["years_experience"] is None
     assert candidate_dict["education"] == ()
+    assert candidate_dict["primary_email"] == "alex@example.com"
+    assert candidate_dict["secondary_emails"] == ()
+    assert candidate_dict["email_resolution_status"] == "resolved"
 
     assert candidate_dict["links"] == {
         "linkedin": None,

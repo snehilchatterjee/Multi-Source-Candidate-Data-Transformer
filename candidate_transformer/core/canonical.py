@@ -38,6 +38,16 @@ class CanonicalSkill:
 
 
 @dataclass(frozen=True)
+class CanonicalEmail:
+    value: str
+    confidence: float
+    sources: tuple[str, ...]
+    latest_application_at: str | None = None
+    distinct_application_count: int = 0
+    corroborating_notes_count: int = 0
+
+
+@dataclass(frozen=True)
 class CanonicalExperience:
     company: str | None
     title: str | None
@@ -76,6 +86,12 @@ class CanonicalCandidate:
     headline: str | None = None
     years_experience: float | None = None
     education: tuple[CanonicalEducation, ...] = ()
+    primary_email: str | None = None
+    secondary_emails: tuple[str, ...] = ()
+    email_details: tuple[CanonicalEmail, ...] = ()
+    email_resolution_status: str = "missing"
+    email_selection_reason: str | None = None
+    email_confidence: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

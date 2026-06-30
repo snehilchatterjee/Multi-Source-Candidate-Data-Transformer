@@ -114,6 +114,67 @@ def test_project_candidate_nested_output_path():
     }
 
 
+def test_project_candidate_can_select_primary_secondary_or_all_emails():
+    candidate = make_candidate()
+    candidate = CanonicalCandidate(
+        candidate_id=candidate.candidate_id,
+        full_name=candidate.full_name,
+        emails=(
+            "primary@example.com",
+            "secondary-one@example.com",
+            "secondary-two@example.com",
+        ),
+        phones=candidate.phones,
+        links=candidate.links,
+        skills=candidate.skills,
+        experience=candidate.experience,
+        provenance=candidate.provenance,
+        overall_confidence=candidate.overall_confidence,
+        primary_email="primary@example.com",
+        secondary_emails=(
+            "secondary-one@example.com",
+            "secondary-two@example.com",
+        ),
+        email_resolution_status="resolved",
+        email_confidence=0.98,
+    )
+    config = {
+        "fields": [
+            {
+                "path": "primary_email",
+                "from": "primary_email",
+                "type": "string",
+            },
+            {
+                "path": "secondary_emails",
+                "from": "secondary_emails",
+                "type": "string[]",
+            },
+            {
+                "path": "all_emails",
+                "from": "emails",
+                "type": "string[]",
+            },
+        ]
+    }
+
+    result = project_candidate(candidate, config)
+
+    assert result.ok
+    assert result.output == {
+        "primary_email": "primary@example.com",
+        "secondary_emails": [
+            "secondary-one@example.com",
+            "secondary-two@example.com",
+        ],
+        "all_emails": [
+            "primary@example.com",
+            "secondary-one@example.com",
+            "secondary-two@example.com",
+        ],
+    }
+
+
 def test_project_candidate_missing_value_defaults_to_null():
     candidate = make_candidate()
 

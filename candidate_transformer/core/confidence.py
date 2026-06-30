@@ -17,6 +17,8 @@ FIELD_RELIABILITY = {
     "explicit_name": 0.95,
     "explicit_company_or_title": 0.90,
     "explicit_url": 0.95,
+    "explicit_application_time": 0.95,
+    "explicit_application_ref": 1.00,
 
     # Future notes/GitHub fields
     "provided_candidate_ref": 1.00,
