@@ -25,6 +25,80 @@ GITHUB_FIND_RE = re.compile(
     re.IGNORECASE,
 )
 
+CONTEXT_TOKEN_RE = re.compile(
+    r"[A-Za-z0-9+#]+(?:\.[A-Za-z0-9+#]+)*(?:['’][A-Za-z]+)?"
+)
+CLAUSE_BOUNDARY_RE = re.compile(r"[.!?;\r\n]")
+NEGATION_WINDOW_TOKENS = 8
+NEGATION_CUES = {
+    "no",
+    "not",
+    "never",
+    "without",
+    "neither",
+    "nor",
+    "lack",
+    "lacks",
+    "lacked",
+    "lacking",
+    "cannot",
+    "can't",
+    "cant",
+    "doesn't",
+    "doesnt",
+    "didn't",
+    "didnt",
+    "hasn't",
+    "hasnt",
+    "haven't",
+    "havent",
+    "hadn't",
+    "hadnt",
+    "isn't",
+    "isnt",
+    "aren't",
+    "arent",
+    "wasn't",
+    "wasnt",
+    "weren't",
+    "werent",
+    "unable",
+}
+SCOPE_BREAKERS = {"but", "however", "yet", "although", "though", "except"}
+PSEUDO_NEGATIONS = {
+    ("not", "only"),
+    ("not", "just"),
+    ("not", "merely"),
+    ("not", "bad"),
+    ("not", "unfamiliar"),
+    ("no", "concern"),
+    ("no", "concerns"),
+    ("no", "problem"),
+    ("no", "problems"),
+    ("no", "issue"),
+    ("no", "issues"),
+}
+POST_SKILL_COPULAS = {
+    "is",
+    "are",
+    "was",
+    "were",
+    "seems",
+    "seemed",
+    "appears",
+    "appeared",
+}
+POST_SKILL_ATTRIBUTES = {
+    "ability",
+    "background",
+    "experience",
+    "expertise",
+    "familiarity",
+    "knowledge",
+    "proficiency",
+    "skills",
+}
+
 # These are valid skills, but too ambiguous to extract from free text
 # without extra context. Example: "go" could be a verb or the Go language.
 AMBIGUOUS_FREE_TEXT_SKILLS = {"go"}
@@ -241,6 +315,7 @@ def _extract_skills(
     result: AdapterResult,
 ) -> None:
     seen: set[str] = set()
+    context_tokens = _tokenize_context(text)
 
     aliases = sorted(SKILL_ALIASES.keys(), key=len, reverse=True)
 
@@ -258,6 +333,14 @@ def _extract_skills(
             normalized = normalize_skill(raw_value)
 
             if normalized is None:
+                continue
+
+            if _is_negated_skill_mention(
+                text,
+                match_start=match.start(),
+                match_end=match.end(),
+                tokens=context_tokens,
+            ):
                 continue
 
             if normalized in seen:
@@ -280,6 +363,151 @@ def _extract_skills(
                     ),
                 )
             )
+
+
+def _tokenize_context(text: str) -> list[tuple[str, int, int]]:
+    return [
+        (match.group(0).lower().replace("’", "'"), match.start(), match.end())
+        for match in CONTEXT_TOKEN_RE.finditer(text)
+    ]
+
+
+def _is_negated_skill_mention(
+    text: str,
+    *,
+    match_start: int,
+    match_end: int,
+    tokens: list[tuple[str, int, int]],
+) -> bool:
+    preceding = _context_tokens_before(
+        text,
+        position=match_start,
+        tokens=tokens,
+    )
+    following = _context_tokens_after(
+        text,
+        position=match_end,
+        tokens=tokens,
+    )
+
+    if _contains_effective_negation([token[0] for token in preceding]):
+        return True
+
+    return _contains_post_skill_negation(
+        text,
+        match_end=match_end,
+        following=following,
+    )
+
+
+def _context_tokens_before(
+    text: str,
+    *,
+    position: int,
+    tokens: list[tuple[str, int, int]],
+) -> list[tuple[str, int, int]]:
+    context: list[tuple[str, int, int]] = []
+    cursor = position
+
+    for token in reversed(tokens):
+        value, start, end = token
+
+        if end > position:
+            continue
+
+        if CLAUSE_BOUNDARY_RE.search(text[end:cursor]) or value in SCOPE_BREAKERS:
+            break
+
+        context.append(token)
+        cursor = start
+
+        if len(context) == NEGATION_WINDOW_TOKENS:
+            break
+
+    context.reverse()
+    return context
+
+
+def _context_tokens_after(
+    text: str,
+    *,
+    position: int,
+    tokens: list[tuple[str, int, int]],
+) -> list[tuple[str, int, int]]:
+    context: list[tuple[str, int, int]] = []
+    cursor = position
+
+    for token in tokens:
+        value, start, end = token
+
+        if start < position:
+            continue
+
+        if CLAUSE_BOUNDARY_RE.search(text[cursor:start]) or value in SCOPE_BREAKERS:
+            break
+
+        context.append(token)
+        cursor = end
+
+        if len(context) == NEGATION_WINDOW_TOKENS:
+            break
+
+    return context
+
+
+def _contains_effective_negation(values: list[str]) -> bool:
+    for index, value in enumerate(values):
+        if value not in NEGATION_CUES:
+            continue
+
+        if tuple(values[index : index + 2]) in PSEUDO_NEGATIONS:
+            continue
+
+        return True
+
+    return False
+
+
+def _contains_post_skill_negation(
+    text: str,
+    *,
+    match_end: int,
+    following: list[tuple[str, int, int]],
+) -> bool:
+    values = [token[0] for token in following]
+
+    if not values:
+        return False
+
+    if _is_effective_negation_at(values, 0):
+        gap = text[match_end : following[0][1]]
+        return "," not in gap
+
+    if (
+        values[0] in POST_SKILL_COPULAS
+        and _is_effective_negation_at(values, 1)
+    ):
+        return True
+
+    if values[0] in POST_SKILL_ATTRIBUTES:
+        if _is_effective_negation_at(values, 1):
+            return True
+
+        if (
+            len(values) > 1
+            and values[1] in POST_SKILL_COPULAS
+            and _is_effective_negation_at(values, 2)
+        ):
+            return True
+
+    return False
+
+
+def _is_effective_negation_at(values: list[str], index: int) -> bool:
+    if index >= len(values) or values[index] not in NEGATION_CUES:
+        return False
+
+    return tuple(values[index : index + 2]) not in PSEUDO_NEGATIONS
 
 
 def _make_observation(

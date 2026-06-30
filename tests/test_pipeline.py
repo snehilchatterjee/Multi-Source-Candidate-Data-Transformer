@@ -336,3 +336,24 @@ def test_pipeline_does_not_return_candidate_that_fails_canonical_schema(
     assert result.canonical_candidates == ()
     assert len(result.errors) == 1
     assert "canonical schema validation failed" in result.errors[0]
+
+
+def test_negated_note_does_not_remove_positive_skill_from_another_note(tmp_path):
+    positive_note = tmp_path / "positive.txt"
+    negative_note = tmp_path / "negative.txt"
+    positive_note.write_text("Strong in Python.", encoding="utf-8")
+    negative_note.write_text("No experience with Python.", encoding="utf-8")
+
+    result = run_candidate_pipeline(
+        note_paths=[positive_note, negative_note],
+        note_candidate_refs={
+            str(positive_note): "C001",
+            str(negative_note): "C001",
+        },
+    )
+
+    assert result.ok
+    assert len(result.canonical_candidates) == 1
+    assert [
+        skill.name for skill in result.canonical_candidates[0].skills
+    ] == ["Python"]

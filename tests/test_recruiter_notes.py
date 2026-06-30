@@ -99,3 +99,93 @@ def test_parse_recruiter_note_text_accepts_candidate_ref():
     assert ("candidate_ref", "C001") in values
     assert ("skills", "Python") in values
     assert ("skills", "Kubernetes") in values
+
+
+def test_parse_recruiter_note_text_skips_negated_skills():
+    result = parse_recruiter_note_text(
+        "No production experience with Python. "
+        "Not familiar with Kubernetes. "
+        "Has never used React."
+    )
+
+    skills = {
+        obs.normalized_value
+        for obs in result.observations
+        if obs.field_path == "skills"
+    }
+
+    assert skills == set()
+
+
+def test_parse_recruiter_note_text_handles_negation_contractions():
+    result = parse_recruiter_note_text(
+        "Isn't familiar with Python. Wasn't trained in React."
+    )
+
+    assert not any(obs.field_path == "skills" for obs in result.observations)
+
+
+def test_parse_recruiter_note_text_limits_negation_to_local_clause():
+    result = parse_recruiter_note_text(
+        "No Python experience, but strong in JavaScript. "
+        "Not sure about the interview. Experienced with Docker."
+    )
+
+    skills = {
+        obs.normalized_value
+        for obs in result.observations
+        if obs.field_path == "skills"
+    }
+
+    assert skills == {"JavaScript", "Docker"}
+
+
+def test_parse_recruiter_note_text_handles_post_skill_negation():
+    result = parse_recruiter_note_text(
+        "Python is not a strength. Kubernetes experience is lacking."
+    )
+
+    assert not any(obs.field_path == "skills" for obs in result.observations)
+
+
+def test_post_skill_negation_does_not_reach_back_across_another_skill():
+    result = parse_recruiter_note_text(
+        "Python is useful and JavaScript is not a strength."
+    )
+
+    skills = {
+        obs.normalized_value
+        for obs in result.observations
+        if obs.field_path == "skills"
+    }
+
+    assert skills == {"Python"}
+
+
+def test_parse_recruiter_note_text_preserves_pseudo_negations():
+    result = parse_recruiter_note_text(
+        "Not only Python but also React. No concerns with Kubernetes."
+    )
+
+    skills = {
+        obs.normalized_value
+        for obs in result.observations
+        if obs.field_path == "skills"
+    }
+
+    assert skills == {"Python", "React", "Kubernetes"}
+
+
+def test_positive_skill_after_negated_mention_is_still_extracted():
+    result = parse_recruiter_note_text(
+        "No previous Python experience. Now strong in Python."
+    )
+
+    python_observations = [
+        obs
+        for obs in result.observations
+        if obs.field_path == "skills" and obs.normalized_value == "Python"
+    ]
+
+    assert len(python_observations) == 1
+    assert python_observations[0].source.locator == "chars=45:51"
