@@ -3,11 +3,12 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Any, Mapping
-
+from candidate_transformer.core.normalize import normalize_phone, normalize_skill
 
 MISSING = object()
 
 SUPPORTED_MISSING_POLICIES = {"null", "omit", "error"}
+SUPPORTED_NORMALIZERS = {"E164", "canonical"}
 
 PATH_PART_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d*)\])?$")
 
@@ -93,6 +94,7 @@ def _project_one_field(
     expected_type = field_spec.get("type", "any")
     required = bool(field_spec.get("required", False))
     on_missing = field_spec.get("on_missing", global_on_missing)
+    normalize_rule = field_spec.get("normalize")
 
     if not isinstance(output_path, str) or not output_path:
         result.errors.append(f"config.fields[{index}].path must be a non-empty string")
@@ -108,6 +110,20 @@ def _project_one_field(
             f"{sorted(SUPPORTED_MISSING_POLICIES)}"
         )
         return
+    
+    if normalize_rule is not None:
+        if not isinstance(normalize_rule, str):
+            result.errors.append(
+                f"config.fields[{index}].normalize must be a string"
+            )
+            return
+
+        if normalize_rule not in SUPPORTED_NORMALIZERS:
+            result.errors.append(
+                f"config.fields[{index}].normalize must be one of "
+                f"{sorted(SUPPORTED_NORMALIZERS)}"
+            )
+            return
 
     try:
         value = _read_path(root, from_path)
@@ -131,9 +147,22 @@ def _project_one_field(
 
         value = None
 
-    value = _to_jsonable(value)
+        value = _to_jsonable(value)
+
+    if normalize_rule is not None and value is not None:
+        normalized_value, normalize_error = _apply_normalization(
+            value,
+            normalize_rule,
+        )
+
+        if normalize_error is not None:
+            result.errors.append(f"Field {output_path!r}: {normalize_error}")
+            return
+
+        value = normalized_value
 
     type_error = _type_error(value, expected_type)
+
     if type_error is not None:
         result.errors.append(f"Field {output_path!r}: {type_error}")
         return
@@ -290,7 +319,73 @@ def _type_error(value: Any, expected_type: str) -> str | None:
 
     return f"unsupported expected type {expected_type!r}"
 
+def _apply_normalization(
+    value: Any,
+    normalize_rule: str,
+) -> tuple[Any, str | None]:
+    if normalize_rule == "E164":
+        return _normalize_e164_projection_value(value)
 
+    if normalize_rule == "canonical":
+        return _normalize_canonical_projection_value(value)
+
+    return value, f"unsupported normalizer {normalize_rule!r}"
+
+
+def _normalize_e164_projection_value(value: Any) -> tuple[Any, str | None]:
+    if isinstance(value, str):
+        normalized = normalize_phone(value)
+
+        if normalized is None:
+            return value, f"could not normalize {value!r} as E164 phone"
+
+        return normalized, None
+
+    if isinstance(value, list):
+        normalized_items: list[str] = []
+
+        for item in value:
+            if not isinstance(item, str):
+                return value, "E164 normalization expects string or string[]"
+
+            normalized = normalize_phone(item)
+
+            if normalized is None:
+                return value, f"could not normalize {item!r} as E164 phone"
+
+            normalized_items.append(normalized)
+
+        return normalized_items, None
+
+    return value, "E164 normalization expects string or string[]"
+
+
+def _normalize_canonical_projection_value(value: Any) -> tuple[Any, str | None]:
+    if isinstance(value, str):
+        normalized = normalize_skill(value)
+
+        if normalized is None:
+            return value, f"could not canonicalize {value!r}"
+
+        return normalized, None
+
+    if isinstance(value, list):
+        normalized_items: list[str] = []
+
+        for item in value:
+            if not isinstance(item, str):
+                return value, "canonical normalization expects string or string[]"
+
+            normalized = normalize_skill(item)
+
+            if normalized is None:
+                return value, f"could not canonicalize {item!r}"
+
+            normalized_items.append(normalized)
+
+        return normalized_items, None
+
+    return value, "canonical normalization expects string or string[]"
 def _to_jsonable(value: Any) -> Any:
     if is_dataclass(value):
         return _to_jsonable(asdict(value))

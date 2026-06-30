@@ -197,3 +197,140 @@ def test_project_candidate_type_validation_error():
     assert not result.ok
     assert len(result.errors) == 1
     assert "expected string" in result.errors[0]
+
+def test_project_candidate_applies_e164_normalization():
+    candidate = make_candidate()
+
+    config = {
+        "fields": [
+            {
+                "path": "phone",
+                "from": "phones[0]",
+                "type": "string",
+                "normalize": "E164",
+            }
+        ],
+        "on_missing": "null",
+    }
+
+    # The test candidate has no phone, so use a modified candidate.
+    candidate = CanonicalCandidate(
+        candidate_id=candidate.candidate_id,
+        full_name=candidate.full_name,
+        emails=candidate.emails,
+        phones=("6502530000",),
+        links=candidate.links,
+        skills=candidate.skills,
+        experience=candidate.experience,
+        provenance=candidate.provenance,
+        overall_confidence=candidate.overall_confidence,
+    )
+
+    result = project_candidate(candidate, config)
+
+    assert result.ok
+    assert result.output == {
+        "phone": "+916502530000",
+    }
+
+
+def test_project_candidate_applies_canonical_skill_normalization():
+    candidate = make_candidate()
+
+    candidate = CanonicalCandidate(
+        candidate_id=candidate.candidate_id,
+        full_name=candidate.full_name,
+        emails=candidate.emails,
+        phones=candidate.phones,
+        links=candidate.links,
+        skills=(
+            CanonicalSkill(
+                name="py",
+                confidence=0.70,
+                sources=("test:test",),
+            ),
+            CanonicalSkill(
+                name="k8s",
+                confidence=0.70,
+                sources=("test:test",),
+            ),
+        ),
+        experience=candidate.experience,
+        provenance=candidate.provenance,
+        overall_confidence=candidate.overall_confidence,
+    )
+
+    config = {
+        "fields": [
+            {
+                "path": "skills",
+                "from": "skills[].name",
+                "type": "string[]",
+                "normalize": "canonical",
+            }
+        ],
+        "on_missing": "null",
+    }
+
+    result = project_candidate(candidate, config)
+
+    assert result.ok
+    assert result.output == {
+        "skills": ["Python", "Kubernetes"],
+    }
+
+
+def test_project_candidate_rejects_unknown_normalizer():
+    candidate = make_candidate()
+
+    config = {
+        "fields": [
+            {
+                "path": "phone",
+                "from": "phones[0]",
+                "type": "string",
+                "normalize": "definitely-invalid",
+            }
+        ],
+        "on_missing": "null",
+    }
+
+    result = project_candidate(candidate, config)
+
+    assert not result.ok
+    assert len(result.errors) == 1
+    assert "normalize must be one of" in result.errors[0]
+
+
+def test_project_candidate_e164_normalization_rejects_invalid_phone():
+    candidate = make_candidate()
+
+    candidate = CanonicalCandidate(
+        candidate_id=candidate.candidate_id,
+        full_name=candidate.full_name,
+        emails=candidate.emails,
+        phones=("not-a-phone",),
+        links=candidate.links,
+        skills=candidate.skills,
+        experience=candidate.experience,
+        provenance=candidate.provenance,
+        overall_confidence=candidate.overall_confidence,
+    )
+
+    config = {
+        "fields": [
+            {
+                "path": "phone",
+                "from": "phones[0]",
+                "type": "string",
+                "normalize": "E164",
+            }
+        ],
+        "on_missing": "null",
+    }
+
+    result = project_candidate(candidate, config)
+
+    assert not result.ok
+    assert len(result.errors) == 1
+    assert "could not normalize" in result.errors[0]
