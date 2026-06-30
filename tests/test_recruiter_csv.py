@@ -81,3 +81,24 @@ def test_parse_recruiter_csv_supports_column_aliases(tmp_path):
     assert ("experience.company", "Acme") in values
     assert ("experience.title", "Engineer") in values
     assert ("links.github", "https://github.com/alexchen") in values
+
+
+def test_parse_recruiter_csv_directory_path_returns_error(tmp_path):
+    csv_dir = tmp_path / "not_a_file"
+    csv_dir.mkdir()
+
+    result = parse_recruiter_csv(csv_dir)
+
+    assert result.observations == []
+    assert len(result.errors) == 1
+    assert "directory" in result.errors[0]
+
+
+def test_parse_recruiter_csv_missing_file_returns_error(tmp_path):
+    csv_path = tmp_path / "missing.csv"
+
+    result = parse_recruiter_csv(csv_path)
+
+    assert result.observations == []
+    assert len(result.errors) == 1
+    assert "does not exist" in result.errors[0]

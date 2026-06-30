@@ -76,3 +76,13 @@ def test_parse_recruiter_notes_file_missing_file(tmp_path):
 
     assert len(result.errors) == 1
     assert result.observations == []
+
+def test_parse_recruiter_notes_file_directory_path_returns_error(tmp_path):
+    notes_dir = tmp_path / "not_a_file"
+    notes_dir.mkdir()
+
+    result = parse_recruiter_notes_file(notes_dir)
+
+    assert result.observations == []
+    assert len(result.errors) == 1
+    assert "directory" in result.errors[0]

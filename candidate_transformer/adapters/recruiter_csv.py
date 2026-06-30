@@ -39,17 +39,23 @@ def parse_recruiter_csv(
 
     This does not deduplicate candidates yet.
     It only turns each non-empty cell into evidence.
+
+    Filesystem failures are reported as adapter errors instead of escaping.
     """
 
     path = Path(csv_path)
     source_id = source_id or path.name
     result = AdapterResult()
 
-    if not path.exists():
-        result.errors.append(f"CSV file does not exist: {path}")
-        return result
-
     try:
+        if not path.exists():
+            result.errors.append(f"CSV file does not exist: {path}")
+            return result
+
+        if path.is_dir():
+            result.errors.append(f"CSV path is a directory, not a file: {path}")
+            return result
+
         with path.open("r", encoding="utf-8-sig", newline="") as f:
             reader = csv.DictReader(f)
 
@@ -75,6 +81,8 @@ def parse_recruiter_csv(
         result.errors.append(f"Could not parse CSV file {path}: {exc}")
     except UnicodeDecodeError as exc:
         result.errors.append(f"Could not decode CSV file {path}: {exc}")
+    except OSError as exc:
+        result.errors.append(f"Could not read CSV file {path}: {exc}")
 
     return result
 

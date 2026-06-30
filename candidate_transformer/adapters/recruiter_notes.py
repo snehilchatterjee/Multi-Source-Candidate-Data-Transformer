@@ -40,14 +40,22 @@ def parse_recruiter_notes_file(
 
     result = AdapterResult()
 
-    if not path.exists():
-        result.errors.append(f"Notes file does not exist: {path}")
-        return result
-
     try:
+        if not path.exists():
+            result.errors.append(f"Notes file does not exist: {path}")
+            return result
+
+        if path.is_dir():
+            result.errors.append(f"Notes path is a directory, not a file: {path}")
+            return result
+
         text = path.read_text(encoding="utf-8")
+
     except UnicodeDecodeError as exc:
         result.errors.append(f"Could not decode notes file {path}: {exc}")
+        return result
+    except OSError as exc:
+        result.errors.append(f"Could not read notes file {path}: {exc}")
         return result
 
     if not text.strip():

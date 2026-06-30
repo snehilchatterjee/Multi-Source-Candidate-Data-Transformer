@@ -97,14 +97,20 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _read_json_file(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        raise ValueError(f"Config file does not exist: {path}")
-
     try:
+        if not path.exists():
+            raise ValueError(f"Config file does not exist: {path}")
+
+        if path.is_dir():
+            raise ValueError(f"Config path is a directory, not a file: {path}")
+
         with path.open("r", encoding="utf-8") as f:
             value = json.load(f)
+
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON config {path}: {exc}") from exc
+    except OSError as exc:
+        raise ValueError(f"Could not read config file {path}: {exc}") from exc
 
     if not isinstance(value, dict):
         raise ValueError(f"Config file must contain a JSON object: {path}")

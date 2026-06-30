@@ -243,3 +243,128 @@ def test_cli_allow_partial_writes_valid_candidates(tmp_path):
     assert candidate["name"] == "Alex Chen"
     assert candidate["email"] == "alex@example.com"
     assert candidate["phone"] == "+916502530000"
+
+def test_cli_allow_partial_writes_output_when_one_input_file_is_missing(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email,phone\n"
+        "Alex Chen,alex@example.com,6502530000\n",
+        encoding="utf-8",
+    )
+
+    missing_note_path = tmp_path / "missing_note.txt"
+
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "fields": [
+                    {
+                        "path": "name",
+                        "from": "full_name",
+                        "type": "string",
+                        "required": True,
+                    },
+                    {
+                        "path": "email",
+                        "from": "emails[0]",
+                        "type": "string",
+                        "required": True,
+                    },
+                    {
+                        "path": "phone",
+                        "from": "phones[0]",
+                        "type": "string",
+                        "normalize": "E164",
+                    },
+                ],
+                "on_missing": "null",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "output.json"
+
+    exit_code = main(
+        [
+            "--csv",
+            str(csv_path),
+            "--note",
+            str(missing_note_path),
+            "--config",
+            str(config_path),
+            "--output",
+            str(output_path),
+            "--allow-partial",
+        ]
+    )
+
+    assert exit_code == 0
+    assert output_path.exists()
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+    assert payload["status"] == "partial_success"
+    assert payload["candidate_count"] == 1
+    assert len(payload["errors"]) == 1
+    assert "does not exist" in payload["errors"][0]
+
+    candidate = payload["candidates"][0]
+
+    assert candidate["name"] == "Alex Chen"
+    assert candidate["email"] == "alex@example.com"
+    assert candidate["phone"] == "+916502530000"
+
+
+def test_cli_strict_mode_refuses_output_when_one_input_file_is_missing(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email\n"
+        "Alex Chen,alex@example.com\n",
+        encoding="utf-8",
+    )
+
+    missing_note_path = tmp_path / "missing_note.txt"
+
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "fields": [
+                    {
+                        "path": "name",
+                        "from": "full_name",
+                        "type": "string",
+                        "required": True,
+                    },
+                    {
+                        "path": "email",
+                        "from": "emails[0]",
+                        "type": "string",
+                        "required": True,
+                    },
+                ],
+                "on_missing": "null",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "output.json"
+
+    exit_code = main(
+        [
+            "--csv",
+            str(csv_path),
+            "--note",
+            str(missing_note_path),
+            "--config",
+            str(config_path),
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    assert exit_code == 1
+    assert not output_path.exists()
