@@ -56,7 +56,7 @@ def parse_recruiter_csv(
     csv_path: str | Path,
     *,
     source_id: str | None = None,
-    default_phone_region: str = "IN",
+    default_phone_region: str | None = None,
 ) -> AdapterResult:
     """
     Parse a recruiter CSV export into observations.
@@ -121,7 +121,7 @@ def _parse_row(
     record_id: str,
     source_id: str,
     header_lookup: dict[str, str],
-    default_phone_region: str,
+    default_phone_region: str | None,
     result: AdapterResult,
 ) -> None:
     # candidate_ref
@@ -261,9 +261,16 @@ def _parse_row(
         for raw_phone in _split_multi_value(raw_value):
             normalized = normalize_phone(raw_phone, default_region=default_phone_region)
             if normalized is None:
-                result.warnings.append(
-                    f"Invalid phone at row={row_number}, column={column}: {raw_phone!r}"
-                )
+                if default_phone_region is None and not raw_phone.lstrip().startswith("+"):
+                    result.warnings.append(
+                        f"Local phone requires an explicit region at row={row_number}, "
+                        f"column={column}: {raw_phone!r}"
+                    )
+                else:
+                    result.warnings.append(
+                        f"Invalid phone at row={row_number}, "
+                        f"column={column}: {raw_phone!r}"
+                    )
                 continue
 
             result.observations.append(

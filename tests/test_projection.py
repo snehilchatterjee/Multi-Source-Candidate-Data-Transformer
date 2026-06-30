@@ -334,7 +334,7 @@ def test_project_candidate_applies_e164_normalization():
         candidate_id=candidate.candidate_id,
         full_name=candidate.full_name,
         emails=candidate.emails,
-        phones=("6502530000",),
+        phones=("+1 650 253 0000",),
         links=candidate.links,
         skills=candidate.skills,
         experience=candidate.experience,
@@ -346,7 +346,7 @@ def test_project_candidate_applies_e164_normalization():
 
     assert result.ok
     assert result.output == {
-        "phone": "+916502530000",
+        "phone": "+16502530000",
     }
 
 

@@ -12,7 +12,11 @@ def test_parse_recruiter_note_text_basic():
     GitHub: github.com/alexchen.
     """
 
-    result = parse_recruiter_note_text(text, source_id="alex_note.txt")
+    result = parse_recruiter_note_text(
+        text,
+        source_id="alex_note.txt",
+        default_phone_region="IN",
+    )
 
     assert result.errors == []
 
@@ -24,6 +28,14 @@ def test_parse_recruiter_note_text_basic():
     assert ("skills", "Python") in values
     assert ("skills", "Kubernetes") in values
     assert ("skills", "Distributed Systems") in values
+
+
+def test_parse_recruiter_note_warns_for_labeled_local_phone_without_region():
+    result = parse_recruiter_note_text("Phone: 6502530000")
+
+    assert not any(obs.field_path == "phones" for obs in result.observations)
+    assert len(result.warnings) == 1
+    assert "requires an explicit region" in result.warnings[0]
 
 
 def test_parse_recruiter_note_text_deduplicates_repeated_skills():

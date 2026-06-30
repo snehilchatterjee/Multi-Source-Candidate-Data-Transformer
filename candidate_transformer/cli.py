@@ -145,8 +145,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--default-phone-region",
-        default="IN",
-        help="Default phone region for local phone numbers. Default: IN.",
+        default=None,
+        help=(
+            "Region used to interpret local phone numbers, such as IN or US. "
+            "If omitted, only international numbers with a country code are accepted."
+        ),
     )
 
     return parser

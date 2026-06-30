@@ -25,6 +25,9 @@ def test_normalize_phone():
     assert normalize_phone("9876543210", default_region="IN") == "+919876543210"
     assert normalize_phone("09876543210", default_region="IN") == "+919876543210"
     assert normalize_phone("+91 98765 43210", default_region="IN") == "+919876543210"
+    assert normalize_phone("6502530000", default_region="US") == "+16502530000"
+    assert normalize_phone("6502530000") is None
+    assert normalize_phone("+1 650 253 0000") == "+16502530000"
     assert normalize_phone("12345", default_region="IN") is None
     assert normalize_phone(None) is None
 

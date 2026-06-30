@@ -46,7 +46,7 @@ def run_candidate_pipeline(
     github_urls: Sequence[str] = (),
     note_candidate_refs: Mapping[str | Path, str] | None = None,
     projection_config: Mapping[str, Any] | None = None,
-    default_phone_region: str = "IN",
+    default_phone_region: str | None = None,
     enrich_github: bool = False,
     github_token: str | None = None,
     github_timeout: float = DEFAULT_TIMEOUT_SECONDS,

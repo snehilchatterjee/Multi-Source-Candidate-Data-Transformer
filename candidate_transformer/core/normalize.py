@@ -66,16 +66,15 @@ def normalize_name(value: str | None) -> str | None:
     return name
 
 
-def normalize_phone(value: str | None, default_region: str = "IN") -> str | None:
+def normalize_phone(
+    value: str | None,
+    default_region: str | None = None,
+) -> str | None:
     """
-    Normalize Indian phone numbers to E.164.
+    Normalize phone numbers to E.164.
 
-    Example:
-      "9876543210" -> "+919876543210"
-      "09876543210" -> "+919876543210"
-      "+91 98765 43210" -> "+919876543210"
-
-    default_region is needed for local numbers without country code.
+    Local numbers require an explicitly supplied default_region. International
+    numbers beginning with a country code do not.
     """
 
     if value is None:

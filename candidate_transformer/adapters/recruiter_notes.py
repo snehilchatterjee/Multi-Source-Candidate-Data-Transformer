@@ -103,12 +103,18 @@ POST_SKILL_ATTRIBUTES = {
 # without extra context. Example: "go" could be a verb or the Go language.
 AMBIGUOUS_FREE_TEXT_SKILLS = {"go"}
 
+LABELED_LOCAL_PHONE_RE = re.compile(
+    r"\b(?:phone|mobile|tel(?:ephone)?|contact)\s*[:=-]?\s*"
+    r"(?P<number>\d(?:[\s().-]*\d){6,14})",
+    re.IGNORECASE,
+)
+
 
 def parse_recruiter_notes_file(
     note_path: str | Path,
     *,
     source_id: str | None = None,
-    default_phone_region: str = "IN",
+    default_phone_region: str | None = None,
     candidate_ref: str | None = None,
 ) -> AdapterResult:
     path = Path(note_path)
@@ -154,7 +160,7 @@ def parse_recruiter_note_text(
     text: str,
     *,
     source_id: str = "inline_note",
-    default_phone_region: str = "IN",
+    default_phone_region: str | None = None,
     candidate_ref: str | None = None,
 ) -> AdapterResult:
     result = AdapterResult()
@@ -243,7 +249,7 @@ def _extract_phones(
     text: str,
     source_id: str,
     record_id: str,
-    default_phone_region: str,
+    default_phone_region: str | None,
     result: AdapterResult,
 ) -> None:
     seen: set[str] = set()
@@ -272,6 +278,14 @@ def _extract_phones(
                 confidence=confidence_for("recruiter_notes", "regex_phone"),
             )
         )
+
+    if default_phone_region is None:
+        for match in LABELED_LOCAL_PHONE_RE.finditer(text):
+            raw_value = match.group("number").strip()
+            result.warnings.append(
+                "Local phone in notes requires an explicit region at "
+                f"chars={match.start('number')}:{match.end('number')}: {raw_value!r}"
+            )
 
 
 def _extract_github_urls(

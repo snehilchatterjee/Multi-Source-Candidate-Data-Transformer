@@ -62,6 +62,7 @@ def test_pipeline_csv_and_notes_end_to_end(tmp_path):
         csv_paths=[csv_path],
         note_paths=[note_path],
         projection_config=config,
+        default_phone_region="US",
     )
 
     assert result.ok
@@ -74,7 +75,7 @@ def test_pipeline_csv_and_notes_end_to_end(tmp_path):
 
     assert candidate.full_name == "Alex Chen"
     assert candidate.emails == ("alex@example.com",)
-    assert candidate.phones == ("+916502530000",)
+    assert candidate.phones == ("+16502530000",)
     assert candidate.links.github == "https://github.com/alexchen"
 
     skill_names = [skill.name for skill in candidate.skills]
@@ -84,7 +85,7 @@ def test_pipeline_csv_and_notes_end_to_end(tmp_path):
 
     assert projected["name"] == "Alex Chen"
     assert projected["email"] == "alex@example.com"
-    assert projected["phone"] == "+916502530000"
+    assert projected["phone"] == "+16502530000"
     assert projected["github"] == "https://github.com/alexchen"
     assert projected["skills"] == skill_names
     assert projected["companies"] == ["Acme"]
@@ -109,6 +110,33 @@ def test_pipeline_without_projection_returns_canonical_only(tmp_path):
 
     assert candidate.full_name == "Alex Chen"
     assert candidate.emails == ("alex@example.com",)
+
+
+def test_pipeline_does_not_guess_region_for_local_phone(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email,phone\nAlex Chen,alex@example.com,6502530000\n",
+        encoding="utf-8",
+    )
+
+    unknown_region = run_candidate_pipeline(csv_paths=[csv_path])
+    explicit_us = run_candidate_pipeline(
+        csv_paths=[csv_path],
+        default_phone_region="US",
+    )
+
+    unknown_candidate = unknown_region.canonical_candidates[0]
+    explicit_candidate = explicit_us.canonical_candidates[0]
+
+    assert unknown_candidate.phones == ()
+    assert unknown_candidate.primary_phone is None
+    assert unknown_candidate.phone_confidence == 0.0
+    assert any("requires an explicit region" in warning for warning in unknown_region.warnings)
+
+    assert explicit_candidate.phones == ("+16502530000",)
+    assert explicit_candidate.primary_phone == "+16502530000"
+    assert explicit_candidate.phone_confidence == 0.90
+    assert explicit_candidate.overall_confidence > unknown_candidate.overall_confidence
 
 
 def test_pipeline_missing_required_projection_field_becomes_error(tmp_path):
@@ -226,6 +254,7 @@ def test_pipeline_notes_vote_resolves_multiple_csv_application_phones(tmp_path):
         csv_paths=[csv_path],
         note_paths=[note_path],
         note_candidate_refs={str(note_path): "C001"},
+        default_phone_region="IN",
     )
 
     assert result.ok

@@ -11,7 +11,7 @@ def test_cli_writes_projected_json(tmp_path):
     csv_path = tmp_path / "candidates.csv"
     csv_path.write_text(
         "name,email,phone,current_company,title,github_url\n"
-        "Alex Chen,alex@example.com,6502530000,Acme,Backend Engineer,github.com/alexchen\n",
+        "Alex Chen,alex@example.com,+16502530000,Acme,Backend Engineer,github.com/alexchen\n",
         encoding="utf-8",
     )
 
@@ -262,6 +262,8 @@ def test_cli_allow_partial_writes_valid_candidates(tmp_path):
             "--output",
             str(output_path),
             "--allow-partial",
+            "--default-phone-region",
+            "US",
         ]
     )
 
@@ -279,7 +281,7 @@ def test_cli_allow_partial_writes_valid_candidates(tmp_path):
 
     assert candidate["name"] == "Alex Chen"
     assert candidate["email"] == "alex@example.com"
-    assert candidate["phone"] == "+916502530000"
+    assert candidate["phone"] == "+16502530000"
 
 def test_cli_allow_partial_writes_output_when_one_input_file_is_missing(tmp_path):
     csv_path = tmp_path / "candidates.csv"
@@ -334,6 +336,8 @@ def test_cli_allow_partial_writes_output_when_one_input_file_is_missing(tmp_path
             "--output",
             str(output_path),
             "--allow-partial",
+            "--default-phone-region",
+            "US",
         ]
     )
 
@@ -351,7 +355,7 @@ def test_cli_allow_partial_writes_output_when_one_input_file_is_missing(tmp_path
 
     assert candidate["name"] == "Alex Chen"
     assert candidate["email"] == "alex@example.com"
-    assert candidate["phone"] == "+916502530000"
+    assert candidate["phone"] == "+16502530000"
 
 
 def test_cli_strict_mode_refuses_output_when_one_input_file_is_missing(tmp_path):

@@ -71,7 +71,7 @@ def test_parse_recruiter_csv_supports_column_aliases(tmp_path):
         encoding="utf-8",
     )
 
-    result = parse_recruiter_csv(csv_path)
+    result = parse_recruiter_csv(csv_path, default_phone_region="IN")
 
     values = {(obs.field_path, obs.normalized_value) for obs in result.observations}
 
@@ -102,6 +102,35 @@ def test_parse_recruiter_csv_missing_file_returns_error(tmp_path):
     assert result.observations == []
     assert len(result.errors) == 1
     assert "does not exist" in result.errors[0]
+
+
+def test_parse_recruiter_csv_rejects_local_phone_without_region(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email,phone\nAlex Chen,alex@example.com,6502530000\n",
+        encoding="utf-8",
+    )
+
+    result = parse_recruiter_csv(csv_path)
+
+    assert not any(obs.field_path == "phones" for obs in result.observations)
+    assert len(result.warnings) == 1
+    assert "requires an explicit region" in result.warnings[0]
+
+
+def test_parse_recruiter_csv_uses_explicit_phone_region(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email,phone\nAlex Chen,alex@example.com,6502530000\n",
+        encoding="utf-8",
+    )
+
+    result = parse_recruiter_csv(csv_path, default_phone_region="US")
+
+    assert ("phones", "+16502530000") in {
+        (obs.field_path, obs.normalized_value) for obs in result.observations
+    }
+    assert result.warnings == []
 
 def test_parse_recruiter_csv_extracts_candidate_ref(tmp_path):
     csv_path = tmp_path / "candidates.csv"
