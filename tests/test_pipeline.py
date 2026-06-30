@@ -281,3 +281,23 @@ def test_pipeline_keeps_same_basename_csv_files_as_distinct_records(tmp_path):
         "Bob Example",
     }
     assert len({obs.record_id for obs in result.observations}) == 2
+
+
+def test_pipeline_warns_and_separates_conflicting_candidate_refs(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "candidate_ref,name,email\n"
+        "C001,Alice Example,shared@example.com\n"
+        "C002,Bob Example,shared@example.com\n",
+        encoding="utf-8",
+    )
+
+    result = run_candidate_pipeline(csv_paths=[csv_path])
+
+    assert result.ok
+    assert len(result.canonical_candidates) == 2
+    assert {candidate.full_name for candidate in result.canonical_candidates} == {
+        "Alice Example",
+        "Bob Example",
+    }
+    assert any("contradictory candidate_ref" in warning for warning in result.warnings)

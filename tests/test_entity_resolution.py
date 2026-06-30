@@ -309,3 +309,134 @@ def test_cluster_id_is_deterministic():
     second = resolve_candidate_clusters(reversed(observations))
 
     assert first[0].cluster_id == second[0].cluster_id
+
+
+def test_shared_email_does_not_merge_contradictory_candidate_refs():
+    observations = [
+        make_observation(
+            record_id="r1",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="r1",
+            field_path="emails",
+            value="shared@example.com",
+        ),
+        make_observation(
+            record_id="r2",
+            field_path="candidate_ref",
+            value="C002",
+        ),
+        make_observation(
+            record_id="r2",
+            field_path="emails",
+            value="shared@example.com",
+        ),
+    ]
+    warnings: list[str] = []
+
+    clusters = resolve_candidate_clusters(observations, warnings=warnings)
+
+    assert {cluster.record_ids for cluster in clusters} == {("r1",), ("r2",)}
+    assert len(warnings) == 1
+    assert "contradictory candidate_ref" in warnings[0]
+
+
+def test_shared_github_does_not_merge_contradictory_candidate_refs():
+    observations = [
+        make_observation(
+            record_id="r1",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="r1",
+            field_path="links.github",
+            value="https://github.com/shared",
+        ),
+        make_observation(
+            record_id="r2",
+            field_path="candidate_ref",
+            value="C002",
+        ),
+        make_observation(
+            record_id="r2",
+            field_path="links.github",
+            value="https://github.com/shared",
+        ),
+    ]
+
+    clusters = resolve_candidate_clusters(observations)
+
+    assert {cluster.record_ids for cluster in clusters} == {("r1",), ("r2",)}
+
+
+def test_missing_candidate_ref_is_neutral_for_shared_email_merge():
+    observations = [
+        make_observation(
+            record_id="r1",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="r1",
+            field_path="emails",
+            value="alex@example.com",
+        ),
+        make_observation(
+            record_id="r2",
+            field_path="emails",
+            value="alex@example.com",
+        ),
+    ]
+
+    clusters = resolve_candidate_clusters(observations)
+
+    assert len(clusters) == 1
+    assert clusters[0].record_ids == ("r1", "r2")
+
+
+def test_transitive_bridge_cannot_join_contradictory_candidate_refs():
+    observations = [
+        make_observation(
+            record_id="r1",
+            field_path="candidate_ref",
+            value="C001",
+        ),
+        make_observation(
+            record_id="r1",
+            field_path="emails",
+            value="bridge@example.com",
+        ),
+        make_observation(
+            record_id="r2",
+            field_path="emails",
+            value="bridge@example.com",
+        ),
+        make_observation(
+            record_id="r2",
+            field_path="links.github",
+            value="https://github.com/bridge",
+        ),
+        make_observation(
+            record_id="r3",
+            field_path="candidate_ref",
+            value="C002",
+        ),
+        make_observation(
+            record_id="r3",
+            field_path="links.github",
+            value="https://github.com/bridge",
+        ),
+    ]
+
+    clusters = resolve_candidate_clusters(observations)
+
+    assert len(clusters) == 2
+    assert not any(
+        {"candidate_ref:C001", "candidate_ref:C002"}.issubset(
+            cluster.identity_keys
+        )
+        for cluster in clusters
+    )

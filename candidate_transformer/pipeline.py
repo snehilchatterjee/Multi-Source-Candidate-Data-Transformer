@@ -88,7 +88,7 @@ def run_candidate_pipeline(
             errors=errors,
         )
 
-    clusters = tuple(resolve_candidate_clusters(observations))
+    clusters = tuple(resolve_candidate_clusters(observations, warnings=warnings))
     canonical_candidates = tuple(resolve_canonical_candidates(clusters))
 
     projected_outputs: tuple[dict[str, Any], ...] | None = None

@@ -74,11 +74,14 @@ class UnionFind:
 
 def resolve_candidate_clusters(
     observations: Iterable[Observation],
+    *,
+    warnings: list[str] | None = None,
 ) -> list[CandidateCluster]:
     """
     Group observations into candidate clusters.
 
     Automatic merge keys:
+      candidate references
       emails
       links.github
 
@@ -88,6 +91,10 @@ def resolve_candidate_clusters(
     Phone-only merging is intentionally conservative. Two records with the
     same phone are merged only when there is corroboration, currently a
     compatible full_name or a second shared automatic identity key.
+
+    A merge is rejected when both current clusters contain non-null,
+    contradictory candidate references. Candidate references are currently
+    treated as belonging to one global namespace.
     """
 
     observation_list = list(observations)
@@ -97,11 +104,12 @@ def resolve_candidate_clusters(
 
     union_find = UnionFind()
 
-    auto_key_to_record_id: dict[str, str] = {}
+    auto_key_to_record_ids: dict[str, set[str]] = defaultdict(set)
     phone_key_to_record_ids: dict[str, set[str]] = defaultdict(set)
 
     record_to_identity_keys: dict[str, set[str]] = defaultdict(set)
     record_to_auto_keys: dict[str, set[str]] = defaultdict(set)
+    record_to_candidate_refs: dict[str, set[str]] = defaultdict(set)
     record_to_names: dict[str, set[str]] = defaultdict(set)
 
     for observation in observation_list:
@@ -122,16 +130,41 @@ def resolve_candidate_clusters(
 
         if observation.field_path in AUTO_MERGE_IDENTITY_FIELDS:
             record_to_auto_keys[record_id].add(identity_key)
+            auto_key_to_record_ids[identity_key].add(record_id)
 
-            previous_record_id = auto_key_to_record_id.get(identity_key)
-
-            if previous_record_id is None:
-                auto_key_to_record_id[identity_key] = record_id
-            else:
-                union_find.union(record_id, previous_record_id)
+            if observation.field_path == "candidate_ref":
+                candidate_ref = _observation_value(observation)
+                if candidate_ref is not None:
+                    record_to_candidate_refs[record_id].add(candidate_ref)
 
         elif observation.field_path == "phones":
             phone_key_to_record_ids[identity_key].add(record_id)
+
+    # Candidate-reference metadata follows union-find roots so every merge is
+    # checked against all references already present in both current clusters.
+    root_to_candidate_refs = {
+        record_id: set(record_to_candidate_refs.get(record_id, set()))
+        for record_id in union_find.parent
+    }
+    emitted_conflicts: set[tuple[str, str, str]] = set()
+
+    # Process automatic identity evidence deterministically, with explicit
+    # candidate-reference matches first. Every pair is considered so a record
+    # is not tied to whichever observation happened to appear first.
+    for identity_key in sorted(auto_key_to_record_ids, key=_auto_merge_key_sort_key):
+        record_ids = sorted(auto_key_to_record_ids[identity_key])
+
+        for left_index, left_record_id in enumerate(record_ids):
+            for right_record_id in record_ids[left_index + 1 :]:
+                _union_if_candidate_refs_compatible(
+                    left_record_id=left_record_id,
+                    right_record_id=right_record_id,
+                    merge_key=identity_key,
+                    union_find=union_find,
+                    root_to_candidate_refs=root_to_candidate_refs,
+                    warnings=warnings,
+                    emitted_conflicts=emitted_conflicts,
+                )
 
     # Conditional phone merges.
     for phone_key, phone_record_ids in sorted(phone_key_to_record_ids.items()):
@@ -147,7 +180,15 @@ def resolve_candidate_clusters(
                     record_to_auto_keys=record_to_auto_keys,
                     record_to_names=record_to_names,
                 ):
-                    union_find.union(left_record_id, right_record_id)
+                    _union_if_candidate_refs_compatible(
+                        left_record_id=left_record_id,
+                        right_record_id=right_record_id,
+                        merge_key=phone_key,
+                        union_find=union_find,
+                        root_to_candidate_refs=root_to_candidate_refs,
+                        warnings=warnings,
+                        emitted_conflicts=emitted_conflicts,
+                    )
 
     root_to_observations: dict[str, list[Observation]] = defaultdict(list)
     root_to_record_ids: dict[str, set[str]] = defaultdict(set)
@@ -184,6 +225,60 @@ def resolve_candidate_clusters(
         )
 
     return sorted(clusters, key=lambda cluster: cluster.cluster_id)
+
+
+def _auto_merge_key_sort_key(identity_key: str) -> tuple[int, str]:
+    if identity_key.startswith("candidate_ref:"):
+        priority = 0
+    elif identity_key.startswith("github:"):
+        priority = 1
+    else:
+        priority = 2
+
+    return priority, identity_key
+
+
+def _union_if_candidate_refs_compatible(
+    *,
+    left_record_id: str,
+    right_record_id: str,
+    merge_key: str,
+    union_find: UnionFind,
+    root_to_candidate_refs: dict[str, set[str]],
+    warnings: list[str] | None,
+    emitted_conflicts: set[tuple[str, str, str]],
+) -> bool:
+    left_root = union_find.find(left_record_id)
+    right_root = union_find.find(right_record_id)
+
+    if left_root == right_root:
+        return True
+
+    left_refs = root_to_candidate_refs.get(left_root, set())
+    right_refs = root_to_candidate_refs.get(right_root, set())
+
+    if left_refs and right_refs and left_refs.isdisjoint(right_refs):
+        conflict_key = tuple(sorted((left_root, right_root))) + (merge_key,)
+
+        if warnings is not None and conflict_key not in emitted_conflicts:
+            warnings.append(
+                "Entity resolution blocked merge on "
+                f"{merge_key!r} between records {left_record_id!r} and "
+                f"{right_record_id!r}: contradictory candidate_ref values "
+                f"{sorted(left_refs)!r} and {sorted(right_refs)!r}."
+            )
+
+        emitted_conflicts.add(conflict_key)
+        return False
+
+    combined_refs = left_refs | right_refs
+    union_find.union(left_root, right_root)
+    merged_root = union_find.find(left_root)
+
+    root_to_candidate_refs.pop(left_root, None)
+    root_to_candidate_refs.pop(right_root, None)
+    root_to_candidate_refs[merged_root] = combined_refs
+    return True
 
 
 def identity_key_for_observation(
