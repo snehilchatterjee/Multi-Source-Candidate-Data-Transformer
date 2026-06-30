@@ -1,0 +1,3 @@
+candidate_id,application_id,applied_at,name,email,phone,current_company,title,github_url
+CAND-002,APP-2001,2024-02-01T08:00:00Z,Snehil Chatterjee,snehil.old@example.com,+919812345678,Oracle,Software Engineer,https://github.com/snehilchatterjee
+CAND-002,APP-2002,2025-08-20T11:15:00Z,Snehil Chatterjee,snehil.latest@example.com,+919812345678,Oracle,Senior Software Engineer,https://github.com/snehilchatterjee

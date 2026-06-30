@@ -1,1 +1,0 @@
-Alex is strong in Python and k8s. Reach alex@example.com.

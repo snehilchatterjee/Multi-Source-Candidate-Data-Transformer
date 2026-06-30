@@ -1,0 +1,8 @@
+{
+  "csv": ["applications.csv"],
+  "notes": [
+    {"path": "notes/snehil.txt", "candidate_ref": "BATCH-001"},
+    {"path": "notes/asha.txt", "candidate_ref": "BATCH-002"},
+    {"path": "notes/vikram.txt", "candidate_ref": "BATCH-003"}
+  ]
+}

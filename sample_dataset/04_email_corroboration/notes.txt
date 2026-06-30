@@ -1,0 +1,2 @@
+The first address on the application appears to contain a typo. Preferred contact email: snehil.correct@example.com.
+Candidate is strong in Python and distributed systems.

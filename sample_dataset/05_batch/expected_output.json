@@ -1,0 +1,47 @@
+{
+  "candidate_count": 3,
+  "candidates": [
+    {
+      "application_count": 1,
+      "candidate_id": "cand_30b26525bde7e942",
+      "github": null,
+      "name": "Vikram Singh",
+      "overall_confidence": 0.78,
+      "primary_email": "vikram.singh@example.com",
+      "skills": [
+        "AWS",
+        "Docker"
+      ]
+    },
+    {
+      "application_count": 2,
+      "candidate_id": "cand_699d736f9f88cd11",
+      "github": "https://github.com/snehilchatterjee",
+      "name": "Snehil Chatterjee",
+      "overall_confidence": 0.88,
+      "primary_email": "snehil.batch@example.com",
+      "skills": [
+        "Kubernetes",
+        "Python"
+      ]
+    },
+    {
+      "application_count": 1,
+      "candidate_id": "cand_a20895296367c2c5",
+      "github": null,
+      "name": "Asha Rao",
+      "overall_confidence": 0.78,
+      "primary_email": "asha.rao@example.com",
+      "skills": [
+        "GCP",
+        "JavaScript",
+        "PostgreSQL",
+        "React"
+      ]
+    }
+  ],
+  "errors": [],
+  "kind": "projected",
+  "status": "success",
+  "warnings": []
+}

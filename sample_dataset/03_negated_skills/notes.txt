@@ -1,0 +1,2 @@
+No JavaScript experience. No React knowledge. Lacks NodeJS experience.
+Strong Python, Kubernetes, Docker, and AWS. Not only SQL but also PostgreSQL.

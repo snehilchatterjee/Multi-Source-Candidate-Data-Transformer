@@ -1,0 +1,35 @@
+{
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "application_count": 2,
+      "companies": [
+        "Oracle"
+      ],
+      "email_selection_reason": "repeated_distinct_applications",
+      "experience_ends": [
+        "present"
+      ],
+      "experience_starts": [
+        "2023-06"
+      ],
+      "generated_candidate_id": "cand_c7a69b76f869b502",
+      "github": "https://github.com/snehilchatterjee",
+      "name": "Snehil Chatterjee",
+      "overall_confidence": 0.88,
+      "primary_email": "snehil.noids@example.com",
+      "skills": [
+        "Docker",
+        "Kubernetes",
+        "Python"
+      ],
+      "titles": [
+        "Software Engineer"
+      ]
+    }
+  ],
+  "errors": [],
+  "kind": "projected",
+  "status": "success",
+  "warnings": []
+}

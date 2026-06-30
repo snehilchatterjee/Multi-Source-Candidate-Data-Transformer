@@ -1,0 +1,2 @@
+candidate_id,application_id,applied_at,name,email,phone,current_company,title,github_url
+CAND-004,APP-4001,2025-10-12T13:20:00Z,Snehil Chatterjee,"snehil.typo@example.com, snehil.correct@example.com",+919600001234,Oracle,Platform Engineer,https://github.com/snehilchatterjee

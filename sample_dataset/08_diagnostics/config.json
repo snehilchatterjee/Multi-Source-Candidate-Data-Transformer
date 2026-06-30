@@ -1,0 +1,12 @@
+{
+  "fields": [
+    {"path": "candidate_id", "type": "string", "required": true},
+    {"path": "name", "from": "full_name", "type": "string", "required": true},
+    {"path": "primary_email", "type": "string", "required": true},
+    {"path": "phone", "from": "primary_phone", "type": "string"},
+    {"path": "github", "from": "links.github", "type": "string"},
+    {"path": "skills", "from": "skills[].name", "type": "string[]"}
+  ],
+  "include_confidence": true,
+  "on_missing": "null"
+}

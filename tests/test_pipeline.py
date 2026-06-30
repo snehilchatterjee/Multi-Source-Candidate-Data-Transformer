@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from candidate_transformer.adapters.github_profile import (
     observations_from_github_payload,
 )
@@ -185,11 +183,12 @@ def test_pipeline_does_not_guess_region_for_local_phone(tmp_path):
     assert explicit_candidate.overall_confidence > unknown_candidate.overall_confidence
 
 
-def test_pipeline_does_not_emit_malformed_fixture_email():
-    csv_path = (
-        Path(__file__).parents[1]
-        / "sample_dataset"
-        / "recruiter_export_messy.csv"
+def test_pipeline_does_not_emit_malformed_email(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email,phone\n"
+        "Theo Martin,theo.martin@example..com,+917029632414\n",
+        encoding="utf-8",
     )
 
     result = run_candidate_pipeline(

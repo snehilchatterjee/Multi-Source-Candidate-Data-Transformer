@@ -1,0 +1,23 @@
+{
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "cand_4897419109e597d4",
+      "email_confidence": 0.98,
+      "email_selection_reason": "csv_email_corroborated_by_notes",
+      "github": "https://github.com/snehilchatterjee",
+      "name": "Snehil Chatterjee",
+      "overall_confidence": 0.88,
+      "primary_email": "snehil.direct@example.com",
+      "skills": [
+        "AWS",
+        "PostgreSQL",
+        "Python"
+      ]
+    }
+  ],
+  "errors": [],
+  "kind": "projected",
+  "status": "success",
+  "warnings": []
+}

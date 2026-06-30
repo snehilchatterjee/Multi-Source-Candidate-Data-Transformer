@@ -1,0 +1,27 @@
+{
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "cand_765bb2f88372a6d0",
+      "github": "https://github.com/snehilchatterjee",
+      "name": "Valid Candidate",
+      "overall_confidence": 0.87,
+      "phone": "+919200001111",
+      "primary_email": "valid.candidate@example.com",
+      "skills": [
+        "PostgreSQL",
+        "Python"
+      ]
+    }
+  ],
+  "errors": [
+    "cand_10ffd4aef318e3af: Required field 'primary_email' is missing from 'primary_email'"
+  ],
+  "kind": "projected",
+  "status": "partial_success",
+  "warnings": [
+    "Invalid email at row=3, column=email: 'broken@example..com'",
+    "Local phone requires an explicit region at row=3, column=phone: '12345'",
+    "Invalid GitHub URL at row=3, column=github_url: 'not-a-github-url'"
+  ]
+}

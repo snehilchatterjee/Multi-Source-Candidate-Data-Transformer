@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from candidate_transformer.adapters.recruiter_csv import parse_recruiter_csv
 
 
@@ -85,11 +83,12 @@ def test_parse_recruiter_csv_invalid_values_become_warnings(tmp_path):
     assert not any(obs.field_path == "links.github" for obs in result.observations)
 
 
-def test_messy_fixture_rejects_consecutive_dot_email():
-    csv_path = (
-        Path(__file__).parents[1]
-        / "sample_dataset"
-        / "recruiter_export_messy.csv"
+def test_parse_recruiter_csv_rejects_consecutive_dot_email(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email\n"
+        "Theo Martin,theo.martin@example..com\n",
+        encoding="utf-8",
     )
 
     result = parse_recruiter_csv(csv_path, default_phone_region="IN")

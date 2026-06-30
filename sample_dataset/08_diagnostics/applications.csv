@@ -1,0 +1,3 @@
+candidate_id,name,email,phone,current_company,title,github_url
+DIAG-001,Valid Candidate,valid.candidate@example.com,+919200001111,Acme,Backend Engineer,https://github.com/snehilchatterjee
+DIAG-002,Broken Candidate,broken@example..com,12345,Unknown Co,Engineer,not-a-github-url

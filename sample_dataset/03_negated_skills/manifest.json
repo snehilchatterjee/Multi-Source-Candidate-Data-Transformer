@@ -1,0 +1,9 @@
+{
+  "csv": ["applications.csv"],
+  "notes": [
+    {
+      "path": "notes.txt",
+      "candidate_ref": "CAND-003"
+    }
+  ]
+}

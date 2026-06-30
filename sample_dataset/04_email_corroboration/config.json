@@ -1,0 +1,15 @@
+{
+  "fields": [
+    {"path": "candidate_id", "type": "string", "required": true},
+    {"path": "name", "from": "full_name", "type": "string", "required": true},
+    {"path": "primary_email", "type": "string", "required": true},
+    {"path": "secondary_emails", "type": "string[]"},
+    {"path": "email_selection_reason", "type": "string", "required": true},
+    {"path": "email_confidence", "type": "number", "required": true},
+    {"path": "ranked_emails", "from": "email_details[].value", "type": "string[]"},
+    {"path": "note_corroboration_counts", "from": "email_details[].corroborating_notes_count", "type": "array"},
+    {"path": "github", "from": "links.github", "type": "string", "required": true}
+  ],
+  "include_confidence": true,
+  "on_missing": "null"
+}

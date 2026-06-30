@@ -1,0 +1,24 @@
+{
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "cand_bcd6b4c00747eb75",
+      "email": "snehil.skills@example.com",
+      "github": "https://github.com/snehilchatterjee",
+      "name": "Snehil Chatterjee",
+      "overall_confidence": 0.87,
+      "skills": [
+        "AWS",
+        "Docker",
+        "Kubernetes",
+        "PostgreSQL",
+        "Python",
+        "SQL"
+      ]
+    }
+  ],
+  "errors": [],
+  "kind": "projected",
+  "status": "success",
+  "warnings": []
+}

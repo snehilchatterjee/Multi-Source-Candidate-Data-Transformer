@@ -1,0 +1,29 @@
+{
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "cand_0352d78466a6b767",
+      "email_confidence": 0.98,
+      "email_selection_reason": "csv_email_corroborated_by_notes",
+      "github": "https://github.com/snehilchatterjee",
+      "name": "Snehil Chatterjee",
+      "note_corroboration_counts": [
+        1,
+        0
+      ],
+      "overall_confidence": 0.88,
+      "primary_email": "snehil.correct@example.com",
+      "ranked_emails": [
+        "snehil.correct@example.com",
+        "snehil.typo@example.com"
+      ],
+      "secondary_emails": [
+        "snehil.typo@example.com"
+      ]
+    }
+  ],
+  "errors": [],
+  "kind": "projected",
+  "status": "success",
+  "warnings": []
+}

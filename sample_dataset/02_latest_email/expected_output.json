@@ -1,0 +1,26 @@
+{
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "cand_9acfff52271e9113",
+      "email_resolution_status": "resolved",
+      "email_selection_reason": "latest_csv_application",
+      "github": "https://github.com/snehilchatterjee",
+      "latest_email_application": "2025-08-20T11:15:00Z",
+      "name": "Snehil Chatterjee",
+      "overall_confidence": 0.88,
+      "primary_email": "snehil.latest@example.com",
+      "secondary_emails": [
+        "snehil.old@example.com"
+      ],
+      "skills": [
+        "PostgreSQL",
+        "Python"
+      ]
+    }
+  ],
+  "errors": [],
+  "kind": "projected",
+  "status": "success",
+  "warnings": []
+}

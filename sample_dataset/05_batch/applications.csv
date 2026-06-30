@@ -1,0 +1,5 @@
+candidate_id,application_id,applied_at,name,email,phone,current_company,title,github_url
+BATCH-001,APP-5001,2024-04-10T09:00:00Z,Snehil Chatterjee,snehil.batch@example.com,+919500001111,Oracle,Software Engineer,https://github.com/snehilchatterjee
+BATCH-001,APP-5002,2025-04-10T09:00:00Z,Snehil Chatterjee,SNEHIL.BATCH@EXAMPLE.COM,+919500001111,Oracle Corporation,Senior Software Engineer,github.com/snehilchatterjee
+BATCH-002,APP-5003,2025-05-11T10:30:00Z,Asha Rao,asha.rao@example.com,+919500002222,Flipkart,Data Engineer,
+BATCH-003,APP-5004,2025-06-12T12:45:00Z,Vikram Singh,vikram.singh@example.com,+919500003333,Atlassian,Platform Engineer,

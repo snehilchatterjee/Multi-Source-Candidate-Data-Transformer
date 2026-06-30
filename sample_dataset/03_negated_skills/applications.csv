@@ -1,0 +1,2 @@
+candidate_id,application_id,applied_at,name,email,phone,current_company,title,github_url
+CAND-003,APP-3001,2025-09-05T10:00:00Z,Snehil Chatterjee,snehil.skills@example.com,+919700001234,Oracle,Backend Engineer,https://github.com/snehilchatterjee
