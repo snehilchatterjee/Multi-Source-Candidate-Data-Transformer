@@ -68,7 +68,10 @@ def parse_recruiter_csv(
     """
 
     path = Path(csv_path)
-    source_id = source_id or path.name
+    # A basename is not unique within one ingestion run. The source ID feeds
+    # every CSV row's record ID, so default to the canonical path to prevent
+    # same-named files in different directories from sharing record IDs.
+    source_id = source_id or str(path.resolve())
     result = AdapterResult()
 
     try:

@@ -233,3 +233,51 @@ def test_pipeline_notes_vote_resolves_multiple_csv_application_phones(tmp_path):
         "+919988776655",
     )
     assert candidate.phone_confidence == 0.93
+
+
+def test_pipeline_keeps_same_basename_note_files_as_distinct_records(tmp_path):
+    alice_dir = tmp_path / "alice"
+    bob_dir = tmp_path / "bob"
+    alice_dir.mkdir()
+    bob_dir.mkdir()
+    alice_note = alice_dir / "note.txt"
+    bob_note = bob_dir / "note.txt"
+    alice_note.write_text("Contact alice@example.com.", encoding="utf-8")
+    bob_note.write_text("Contact bob@example.com.", encoding="utf-8")
+
+    result = run_candidate_pipeline(note_paths=[alice_note, bob_note])
+
+    assert result.ok
+    assert len(result.canonical_candidates) == 2
+    assert {candidate.emails for candidate in result.canonical_candidates} == {
+        ("alice@example.com",),
+        ("bob@example.com",),
+    }
+    assert len({obs.record_id for obs in result.observations}) == 2
+
+
+def test_pipeline_keeps_same_basename_csv_files_as_distinct_records(tmp_path):
+    first_dir = tmp_path / "first_export"
+    second_dir = tmp_path / "second_export"
+    first_dir.mkdir()
+    second_dir.mkdir()
+    first_csv = first_dir / "candidates.csv"
+    second_csv = second_dir / "candidates.csv"
+    first_csv.write_text(
+        "name,email\nAlice Example,alice@example.com\n",
+        encoding="utf-8",
+    )
+    second_csv.write_text(
+        "name,email\nBob Example,bob@example.com\n",
+        encoding="utf-8",
+    )
+
+    result = run_candidate_pipeline(csv_paths=[first_csv, second_csv])
+
+    assert result.ok
+    assert len(result.canonical_candidates) == 2
+    assert {candidate.full_name for candidate in result.canonical_candidates} == {
+        "Alice Example",
+        "Bob Example",
+    }
+    assert len({obs.record_id for obs in result.observations}) == 2

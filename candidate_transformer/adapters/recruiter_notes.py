@@ -38,7 +38,11 @@ def parse_recruiter_notes_file(
     candidate_ref: str | None = None,
 ) -> AdapterResult:
     path = Path(note_path)
-    source_id = source_id or path.name
+    # A basename is not unique within one ingestion run (for example,
+    # applications/alice/note.txt and applications/bob/note.txt). Since the
+    # source ID is also part of the record ID, use the canonical path by
+    # default so unrelated files cannot collapse into one source record.
+    source_id = source_id or str(path.resolve())
 
     result = AdapterResult()
 
