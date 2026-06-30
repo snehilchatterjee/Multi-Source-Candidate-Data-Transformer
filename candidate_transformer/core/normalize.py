@@ -303,6 +303,85 @@ def normalize_candidate_ref(value: str | None) -> str | None:
     return ref
 
 
+def normalize_experience_date(
+    value: str | None,
+    *,
+    allow_present: bool = False,
+) -> str | None:
+    """Normalize an employment date while preserving its source precision.
+
+    Canonical values use ``YYYY``, ``YYYY-MM``, or ``YYYY-MM-DD``. Common
+    unambiguous numeric and month-name forms are accepted. An open-ended role
+    may use ``present`` when the caller explicitly permits it (normally only
+    for an experience end date).
+    """
+
+    if value is None:
+        return None
+
+    raw = " ".join(str(value).strip().split())
+    if not raw:
+        return None
+
+    if allow_present and raw.casefold().rstrip(".") in {
+        "current",
+        "now",
+        "ongoing",
+        "present",
+    }:
+        return "present"
+
+    if re.fullmatch(r"\d{4}", raw):
+        year = int(raw)
+        return f"{year:04d}" if year > 0 else None
+
+    month_match = re.fullmatch(r"(\d{4})[-/.](\d{1,2})", raw)
+    if month_match is not None:
+        year, month = map(int, month_match.groups())
+        if year > 0 and 1 <= month <= 12:
+            return f"{year:04d}-{month:02d}"
+        return None
+
+    date_match = re.fullmatch(
+        r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})",
+        raw,
+    )
+    if date_match is not None:
+        year, month, day = map(int, date_match.groups())
+        try:
+            return datetime(year, month, day).date().isoformat()
+        except ValueError:
+            return None
+
+    compact_format = None
+    if re.fullmatch(r"\d{6}", raw):
+        compact_format = "%Y%m"
+    elif re.fullmatch(r"\d{8}", raw):
+        compact_format = "%Y%m%d"
+
+    if compact_format is not None:
+        try:
+            parsed = datetime.strptime(raw, compact_format)
+        except ValueError:
+            return None
+        return parsed.strftime("%Y-%m" if compact_format == "%Y%m" else "%Y-%m-%d")
+
+    for date_format, output_format in (
+        ("%b %Y", "%Y-%m"),
+        ("%B %Y", "%Y-%m"),
+        ("%Y %b", "%Y-%m"),
+        ("%Y %B", "%Y-%m"),
+        ("%d %b %Y", "%Y-%m-%d"),
+        ("%d %B %Y", "%Y-%m-%d"),
+    ):
+        try:
+            return datetime.strptime(raw, date_format).strftime(output_format)
+        except ValueError:
+            continue
+
+    return None
+
+
 def normalize_application_time(value: str | None) -> str | None:
     """Normalize unambiguous application dates/timestamps to UTC ISO-8601."""
 

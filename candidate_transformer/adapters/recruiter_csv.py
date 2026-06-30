@@ -11,6 +11,7 @@ from candidate_transformer.core.normalize import (
     normalize_candidate_ref,
     normalize_company,
     normalize_email,
+    normalize_experience_date,
     normalize_github_url,
     normalize_name,
     normalize_phone,
@@ -34,6 +35,28 @@ COLUMN_ALIASES = {
     "phones": ["phone", "phones", "mobile", "phone_number"],
     "experience.company": ["current_company", "company", "employer"],
     "experience.title": ["title", "current_title", "job_title", "role"],
+    "experience.start": [
+        "start_date",
+        "experience_start",
+        "experience_start_date",
+        "employment_start",
+        "employment_start_date",
+        "job_start_date",
+        "role_start_date",
+        "started_at",
+        "start",
+    ],
+    "experience.end": [
+        "end_date",
+        "experience_end",
+        "experience_end_date",
+        "employment_end",
+        "employment_end_date",
+        "job_end_date",
+        "role_end_date",
+        "ended_at",
+        "end",
+    ],
     "links.github": ["github", "github_url", "github_profile"],
     "application.applied_at": [
         "applied_at",
@@ -327,6 +350,44 @@ def _parse_row(
                     confidence=confidence_for("recruiter_csv", "explicit_company_or_title"), # SDE I -> SDE II
                 )
             )
+
+    # employment dates
+    for field_path, label in (
+        ("experience.start", "start"),
+        ("experience.end", "end"),
+    ):
+        date_cell = _get_cell(row, header_lookup, COLUMN_ALIASES[field_path])
+        if date_cell is None:
+            continue
+
+        raw_value, column = date_cell
+        normalized = normalize_experience_date(
+            raw_value,
+            allow_present=field_path == "experience.end",
+        )
+        if normalized is None:
+            result.warnings.append(
+                f"Invalid experience {label} date at row={row_number}, "
+                f"column={column}: {raw_value!r}"
+            )
+            continue
+
+        result.observations.append(
+            _make_observation(
+                record_id=record_id,
+                field_path=field_path,
+                raw_value=raw_value,
+                normalized_value=normalized,
+                source_id=source_id,
+                row_number=row_number,
+                column=column,
+                method=f"csv_column:{column} -> normalize_experience_date",
+                confidence=confidence_for(
+                    "recruiter_csv",
+                    "explicit_experience_date",
+                ),
+            )
+        )
 
     # GitHub URL
     github_cell = _get_cell(row, header_lookup, COLUMN_ALIASES["links.github"])

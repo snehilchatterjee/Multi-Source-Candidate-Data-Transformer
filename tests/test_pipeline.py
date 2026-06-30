@@ -114,6 +114,27 @@ def test_pipeline_without_projection_returns_canonical_only(tmp_path):
     assert candidate.emails == ("alex@example.com",)
 
 
+def test_pipeline_resolves_csv_experience_dates_into_canonical_output(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email,current_company,title,start_date,end_date\n"
+        "Alex Chen,alex@example.com,Acme,Backend Engineer,2020-01,2024-05\n",
+        encoding="utf-8",
+    )
+
+    result = run_candidate_pipeline(csv_paths=[csv_path])
+
+    assert result.ok
+    assert len(result.canonical_candidates) == 1
+    experience = result.canonical_candidates[0].experience[0]
+    assert experience.start == "2020-01"
+    assert experience.end == "2024-05"
+    assert {record.field_path for record in result.canonical_candidates[0].provenance} >= {
+        "experience.start",
+        "experience.end",
+    }
+
+
 def test_pipeline_does_not_guess_region_for_local_phone(tmp_path):
     csv_path = tmp_path / "candidates.csv"
     csv_path.write_text(

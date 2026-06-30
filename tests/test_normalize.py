@@ -2,6 +2,7 @@ from candidate_transformer.core.normalize import (
     company_identity_key,
     normalize_company,
     normalize_email,
+    normalize_experience_date,
     normalize_github_url,
     normalize_name,
     normalize_phone,
@@ -77,3 +78,19 @@ def test_normalize_skill():
     assert normalize_skill("javascript") == "JavaScript"
     assert normalize_skill("Distributed Systems") == "Distributed Systems"
     assert normalize_skill("") is None
+
+
+def test_normalize_experience_date_preserves_precision():
+    assert normalize_experience_date("2020") == "2020"
+    assert normalize_experience_date("2020-1") == "2020-01"
+    assert normalize_experience_date("2020/01/31") == "2020-01-31"
+    assert normalize_experience_date("Jan 2020") == "2020-01"
+    assert normalize_experience_date("202405") == "2024-05"
+
+
+def test_normalize_experience_date_validates_values_and_present():
+    assert normalize_experience_date("2023-02-29") is None
+    assert normalize_experience_date("present") is None
+    assert normalize_experience_date("Current", allow_present=True) == "present"
+    assert normalize_experience_date("") is None
+    assert normalize_experience_date(None) is None

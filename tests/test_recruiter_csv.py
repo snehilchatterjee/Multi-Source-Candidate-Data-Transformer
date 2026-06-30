@@ -124,6 +124,39 @@ def test_parse_recruiter_csv_supports_column_aliases(tmp_path):
     assert ("links.github", "https://github.com/alexchen") in values
 
 
+def test_parse_recruiter_csv_extracts_normalized_experience_dates(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email,current_company,title,start_date,end_date\n"
+        "Alex Chen,alex@example.com,Acme,Engineer,2020-01,May 2024\n",
+        encoding="utf-8",
+    )
+
+    result = parse_recruiter_csv(csv_path)
+    values = {(obs.field_path, obs.normalized_value) for obs in result.observations}
+
+    assert result.warnings == []
+    assert ("experience.start", "2020-01") in values
+    assert ("experience.end", "2024-05") in values
+
+
+def test_parse_recruiter_csv_allows_present_only_as_experience_end(tmp_path):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email,current_company,title,start_date,end_date\n"
+        "Alex Chen,alex@example.com,Acme,Engineer,present,Current\n",
+        encoding="utf-8",
+    )
+
+    result = parse_recruiter_csv(csv_path)
+    values = {(obs.field_path, obs.normalized_value) for obs in result.observations}
+
+    assert ("experience.end", "present") in values
+    assert not any(obs.field_path == "experience.start" for obs in result.observations)
+    assert len(result.warnings) == 1
+    assert "Invalid experience start date" in result.warnings[0]
+
+
 def test_parse_recruiter_csv_directory_path_returns_error(tmp_path):
     csv_dir = tmp_path / "not_a_file"
     csv_dir.mkdir()

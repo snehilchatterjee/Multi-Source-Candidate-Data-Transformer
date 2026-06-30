@@ -16,6 +16,7 @@ FIELD_RELIABILITY = {
     "explicit_phone": 0.95,
     "explicit_name": 0.95,
     "explicit_company_or_title": 0.90,
+    "explicit_experience_date": 0.95,
     "explicit_url": 0.95,
     "explicit_application_time": 0.95,
     "explicit_application_ref": 1.00,
