@@ -1,0 +1,311 @@
+{
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "cand_a24f111c90d08240",
+      "education": [],
+      "email_confidence": 0.97,
+      "email_details": [
+        {
+          "confidence": 0.97,
+          "corroborating_notes_count": 0,
+          "distinct_application_count": 2,
+          "latest_application_at": "2025-03-10T14:45:00Z",
+          "sources": [
+            "recruiter_csv:/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv"
+          ],
+          "value": "snehil.repeat@example.com"
+        }
+      ],
+      "email_resolution_status": "resolved",
+      "email_selection_reason": "repeated_distinct_applications",
+      "emails": [
+        "snehil.repeat@example.com"
+      ],
+      "experience": [
+        {
+          "company": "Oracle",
+          "confidence": 0.88,
+          "end": "present",
+          "sources": [
+            "recruiter_csv:/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv"
+          ],
+          "start": "2023-06",
+          "summary": null,
+          "title": "Software Engineer"
+        }
+      ],
+      "full_name": "Snehil Chatterjee",
+      "headline": null,
+      "links": {
+        "github": "https://github.com/snehilchatterjee",
+        "linkedin": null,
+        "other": [],
+        "portfolio": null
+      },
+      "location": {
+        "city": null,
+        "country": null,
+        "region": null
+      },
+      "overall_confidence": 0.88,
+      "phone_confidence": 0.92,
+      "phone_details": [
+        {
+          "confidence": 0.92,
+          "corroborating_notes_count": 0,
+          "distinct_application_count": 2,
+          "latest_application_at": "2025-03-10T14:45:00Z",
+          "sources": [
+            "recruiter_csv:/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv"
+          ],
+          "value": "+919876543210"
+        }
+      ],
+      "phone_resolution_status": "resolved",
+      "phone_selection_reason": "repeated_distinct_applications",
+      "phones": [
+        "+919876543210"
+      ],
+      "primary_email": "snehil.repeat@example.com",
+      "primary_phone": "+919876543210",
+      "provenance": [
+        {
+          "confidence": 0.9,
+          "field_path": "application.applied_at",
+          "locator": "row=2,column=applied_at",
+          "method": "csv_column:applied_at -> normalize_application_time",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "2024-01-15T09:30:00Z"
+        },
+        {
+          "confidence": 0.9,
+          "field_path": "application.applied_at",
+          "locator": "row=3,column=applied_at",
+          "method": "csv_column:applied_at -> normalize_application_time",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "2025-03-10T14:45:00Z"
+        },
+        {
+          "confidence": 0.95,
+          "field_path": "application.id",
+          "locator": "row=2,column=application_id",
+          "method": "csv_column:application_id -> normalize_application_ref",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "APP-1001"
+        },
+        {
+          "confidence": 0.95,
+          "field_path": "application.id",
+          "locator": "row=3,column=application_id",
+          "method": "csv_column:application_id -> normalize_application_ref",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "APP-1002"
+        },
+        {
+          "confidence": 0.95,
+          "field_path": "emails",
+          "locator": "row=2,column=email",
+          "method": "csv_column:email -> normalize_email",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "snehil.repeat@example.com"
+        },
+        {
+          "confidence": 0.95,
+          "field_path": "emails",
+          "locator": "row=3,column=email",
+          "method": "csv_column:email -> normalize_email",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "snehil.repeat@example.com"
+        },
+        {
+          "confidence": 0.85,
+          "field_path": "experience.company",
+          "locator": "row=2,column=current_company",
+          "method": "csv_column:current_company -> normalize_company",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "Oracle"
+        },
+        {
+          "confidence": 0.85,
+          "field_path": "experience.company",
+          "locator": "row=3,column=current_company",
+          "method": "csv_column:current_company -> normalize_company",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "Oracle"
+        },
+        {
+          "confidence": 0.9,
+          "field_path": "experience.end",
+          "locator": "row=2,column=end_date",
+          "method": "csv_column:end_date -> normalize_experience_date",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "present"
+        },
+        {
+          "confidence": 0.9,
+          "field_path": "experience.end",
+          "locator": "row=3,column=end_date",
+          "method": "csv_column:end_date -> normalize_experience_date",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "present"
+        },
+        {
+          "confidence": 0.9,
+          "field_path": "experience.start",
+          "locator": "row=2,column=start_date",
+          "method": "csv_column:start_date -> normalize_experience_date",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "2023-06"
+        },
+        {
+          "confidence": 0.9,
+          "field_path": "experience.start",
+          "locator": "row=3,column=start_date",
+          "method": "csv_column:start_date -> normalize_experience_date",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "2023-06"
+        },
+        {
+          "confidence": 0.85,
+          "field_path": "experience.title",
+          "locator": "row=2,column=title",
+          "method": "csv_column:title -> normalize_text",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "Software Engineer"
+        },
+        {
+          "confidence": 0.85,
+          "field_path": "experience.title",
+          "locator": "row=3,column=title",
+          "method": "csv_column:title -> normalize_text",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "Software Engineer"
+        },
+        {
+          "confidence": 0.9,
+          "field_path": "full_name",
+          "locator": "row=2,column=name",
+          "method": "csv_column:name -> normalize_name",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "Snehil Chatterjee"
+        },
+        {
+          "confidence": 0.9,
+          "field_path": "links.github",
+          "locator": "row=2,column=github_url",
+          "method": "csv_column:github_url -> normalize_github_url",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "https://github.com/snehilchatterjee"
+        },
+        {
+          "confidence": 0.9,
+          "field_path": "phones",
+          "locator": "row=2,column=phone",
+          "method": "csv_column:phone -> normalize_phone",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "+919876543210"
+        },
+        {
+          "confidence": 0.9,
+          "field_path": "phones",
+          "locator": "row=3,column=phone",
+          "method": "csv_column:phone -> normalize_phone",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/applications.csv",
+          "source_type": "recruiter_csv",
+          "value": "+919876543210"
+        },
+        {
+          "confidence": 0.68,
+          "field_path": "skills[AWS]",
+          "locator": "chars=69:72",
+          "method": "skill_dictionary_match -> normalize_skill",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/notes.txt",
+          "source_type": "recruiter_notes",
+          "value": "AWS"
+        },
+        {
+          "confidence": 0.68,
+          "field_path": "skills[Docker]",
+          "locator": "chars=58:64",
+          "method": "skill_dictionary_match -> normalize_skill",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/notes.txt",
+          "source_type": "recruiter_notes",
+          "value": "Docker"
+        },
+        {
+          "confidence": 0.68,
+          "field_path": "skills[Kubernetes]",
+          "locator": "chars=18:28",
+          "method": "skill_dictionary_match -> normalize_skill",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/notes.txt",
+          "source_type": "recruiter_notes",
+          "value": "Kubernetes"
+        },
+        {
+          "confidence": 0.68,
+          "field_path": "skills[Python]",
+          "locator": "chars=7:13",
+          "method": "skill_dictionary_match -> normalize_skill",
+          "source_id": "/Users/snechatt/Documents/8F/sample_dataset/01_repeated/notes.txt",
+          "source_type": "recruiter_notes",
+          "value": "Python"
+        }
+      ],
+      "secondary_emails": [],
+      "secondary_phones": [],
+      "skills": [
+        {
+          "confidence": 0.68,
+          "name": "AWS",
+          "sources": [
+            "recruiter_notes:/Users/snechatt/Documents/8F/sample_dataset/01_repeated/notes.txt"
+          ]
+        },
+        {
+          "confidence": 0.68,
+          "name": "Docker",
+          "sources": [
+            "recruiter_notes:/Users/snechatt/Documents/8F/sample_dataset/01_repeated/notes.txt"
+          ]
+        },
+        {
+          "confidence": 0.68,
+          "name": "Kubernetes",
+          "sources": [
+            "recruiter_notes:/Users/snechatt/Documents/8F/sample_dataset/01_repeated/notes.txt"
+          ]
+        },
+        {
+          "confidence": 0.68,
+          "name": "Python",
+          "sources": [
+            "recruiter_notes:/Users/snechatt/Documents/8F/sample_dataset/01_repeated/notes.txt"
+          ]
+        }
+      ],
+      "years_experience": null
+    }
+  ],
+  "errors": [],
+  "kind": "canonical",
+  "status": "success",
+  "warnings": []
+}

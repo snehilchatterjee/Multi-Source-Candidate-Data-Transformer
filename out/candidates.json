@@ -2,15 +2,25 @@
   "candidate_count": 1,
   "candidates": [
     {
-      "email": "alex@example.com",
-      "name": "Alex Chen",
-      "overall_confidence": 0.87,
+      "application_count": 2,
+      "candidate_id": "cand_a24f111c90d08240",
+      "email_confidence": 0.97,
+      "email_selection_reason": "repeated_distinct_applications",
+      "github": "https://github.com/snehilchatterjee",
+      "name": "Snehil Chatterjee",
+      "overall_confidence": 0.88,
+      "phone": "+919876543210",
+      "primary_email": "snehil.repeat@example.com",
       "skills": [
+        "AWS",
+        "Docker",
         "Kubernetes",
         "Python"
       ]
     }
   ],
+  "errors": [],
   "kind": "projected",
+  "status": "success",
   "warnings": []
 }
