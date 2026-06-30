@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Sequence
@@ -26,6 +27,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     
     csv_paths = list(args.csv)
     note_paths = list(args.note)
+    github_urls = list(args.github)
     note_candidate_refs: dict[str, str] = {}
 
     if args.manifest is not None:
@@ -33,6 +35,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             (
                 manifest_csv_paths,
                 manifest_note_paths,
+                manifest_github_urls,
                 manifest_note_candidate_refs,
             ) = _read_ingestion_manifest(Path(args.manifest))
         except ValueError as exc:
@@ -41,14 +44,18 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         csv_paths.extend(manifest_csv_paths)
         note_paths.extend(manifest_note_paths)
+        github_urls.extend(manifest_github_urls)
         note_candidate_refs.update(manifest_note_candidate_refs)
 
     result = run_candidate_pipeline(
         csv_paths=csv_paths,
         note_paths=note_paths,
+        github_urls=github_urls,
         note_candidate_refs=note_candidate_refs,
         projection_config=projection_config,
         default_phone_region=args.default_phone_region,
+        enrich_github=args.enrich_github,
+        github_token=os.getenv("GITHUB_TOKEN") or None,
     )
 
     _print_warnings_and_errors(result)
@@ -73,7 +80,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="candidate-transformer",
-        description="Build canonical candidate profiles from recruiter CSVs and notes.",
+        description=(
+            "Build canonical candidate profiles from recruiter CSVs, notes, "
+            "and optional GitHub enrichment."
+        ),
     )
 
     parser.add_argument(
@@ -91,6 +101,22 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--github",
+        action="append",
+        default=[],
+        help=(
+            "Public GitHub profile URL to enrich. Can be provided multiple times; "
+            "GITHUB_TOKEN is optional."
+        ),
+    )
+
+    parser.add_argument(
+        "--enrich-github",
+        action="store_true",
+        help="Enrich GitHub profile URLs discovered in CSV and note inputs.",
+    )
+
+    parser.add_argument(
         "--config",
         help="Path to a projection config JSON file. If omitted, canonical candidates are output.",
     )
@@ -104,7 +130,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--manifest",
         help=(
             "Path to ingestion manifest JSON. "
-            "Supports csv files and notes with candidate_ref mappings."
+            "Supports csv files, notes with candidate_ref mappings, and GitHub URLs."
         ),
     )
 
@@ -197,7 +223,9 @@ def _print_warnings_and_errors(result: PipelineResult) -> None:
     for error in result.errors:
         print(f"ERROR: {error}", file=sys.stderr)
 
-def _read_ingestion_manifest(path: Path) -> tuple[list[Path], list[Path], dict[str, str]]:
+def _read_ingestion_manifest(
+    path: Path,
+) -> tuple[list[Path], list[Path], list[str], dict[str, str]]:
     manifest = _read_json_file(path)
     base_dir = path.parent
 
@@ -209,6 +237,7 @@ def _read_ingestion_manifest(path: Path) -> tuple[list[Path], list[Path], dict[s
 
     note_paths: list[Path] = []
     note_candidate_refs: dict[str, str] = {}
+    github_urls = _manifest_urls(manifest.get("github", []))
 
     notes_value = manifest.get("notes", [])
 
@@ -243,7 +272,31 @@ def _read_ingestion_manifest(path: Path) -> tuple[list[Path], list[Path], dict[s
             note_candidate_refs[str(note_path)] = candidate_ref
             note_candidate_refs[note_path.name] = candidate_ref
 
-    return csv_paths, note_paths, note_candidate_refs
+    return csv_paths, note_paths, github_urls, note_candidate_refs
+
+
+def _manifest_urls(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        raise ValueError("Manifest field 'github' must be a list")
+
+    urls: list[str] = []
+
+    for index, entry in enumerate(value):
+        if isinstance(entry, str) and entry.strip():
+            urls.append(entry.strip())
+            continue
+
+        if isinstance(entry, dict):
+            raw_url = entry.get("url")
+            if isinstance(raw_url, str) and raw_url.strip():
+                urls.append(raw_url.strip())
+                continue
+
+        raise ValueError(
+            f"Manifest github[{index}] must be a non-empty string or object with url"
+        )
+
+    return urls
 
 
 def _manifest_paths(

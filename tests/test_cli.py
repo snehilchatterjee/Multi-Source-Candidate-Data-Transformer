@@ -1,6 +1,10 @@
 import json
 
+from candidate_transformer.adapters.github_profile import (
+    observations_from_github_payload,
+)
 from candidate_transformer.cli import main
+from candidate_transformer.core.models import AdapterResult
 
 
 def test_cli_writes_projected_json(tmp_path):
@@ -492,3 +496,58 @@ def test_cli_manifest_candidate_ref_joins_csv_and_note(tmp_path):
     assert candidate["name"] == "Alex Chen"
     assert candidate["email"] == "alex@example.com"
     assert candidate["skills"] == ["Kubernetes", "Python"]
+
+
+def test_cli_accepts_github_from_manifest_and_optional_token(
+    tmp_path,
+    monkeypatch,
+):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "github": [
+                    {"url": "https://github.com/alexchen"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "output.json"
+    calls = []
+
+    def fake_fetch(github_url, *, token, timeout):
+        calls.append((github_url, token))
+        return AdapterResult(
+            observations=observations_from_github_payload(
+                github_url,
+                profile={
+                    "name": "Alex Chen",
+                    "html_url": "https://github.com/alexchen",
+                    "bio": "Backend engineer",
+                },
+                repositories=[],
+            )
+        )
+
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    monkeypatch.setattr(
+        "candidate_transformer.pipeline.fetch_github_profile",
+        fake_fetch,
+    )
+
+    exit_code = main(
+        [
+            "--manifest",
+            str(manifest_path),
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls == [("https://github.com/alexchen", "test-token")]
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["candidate_count"] == 1
+    assert payload["candidates"][0]["full_name"] == "Alex Chen"
+    assert payload["candidates"][0]["headline"] == "Backend engineer"

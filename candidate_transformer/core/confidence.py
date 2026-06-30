@@ -26,6 +26,13 @@ FIELD_RELIABILITY = {
     "regex_phone": 0.90,
     "regex_url": 0.90,
     "skill_dictionary_match": 0.85,
+    "provided_profile_url": 0.95,
+    "api_profile_name": 0.85,
+    "api_profile_email": 0.90,
+    "api_profile_url": 1.00,
+    "api_profile_blog": 0.85,
+    "api_profile_bio": 0.70,
+    "api_profile_company": 0.75,
     "github_repo_language": 0.85,
 }
 

@@ -121,12 +121,39 @@ def resolve_canonical_candidate(cluster: CandidateCluster) -> CanonicalCandidate
     phone_resolution = _resolve_phones(observations)
     provenance.extend(_provenance_for_groups(phone_resolution.groups))
 
-    # GitHub: canonical model currently keeps one primary GitHub link.
+    # Links: named link categories keep one best value; `other` remains a
+    # deterministic collection.
     github_obs = _best_observation(_field_observations(observations, "links.github"))
     github = _value(github_obs) if github_obs is not None else None
-
     if github_obs is not None:
         provenance.append(_provenance_from_observation(github_obs))
+
+    linkedin_obs = _best_observation(
+        _field_observations(observations, "links.linkedin")
+    )
+    linkedin = _value(linkedin_obs) if linkedin_obs is not None else None
+    if linkedin_obs is not None:
+        provenance.append(_provenance_from_observation(linkedin_obs))
+
+    portfolio_obs = _best_observation(
+        _field_observations(observations, "links.portfolio")
+    )
+    portfolio = _value(portfolio_obs) if portfolio_obs is not None else None
+    if portfolio_obs is not None:
+        provenance.append(_provenance_from_observation(portfolio_obs))
+
+    other_link_groups = _group_by_value(
+        _field_observations(observations, "links.other")
+    )
+    other_links = _sorted_group_values(other_link_groups)
+    provenance.extend(_provenance_for_groups(other_link_groups))
+
+    headline_obs = _best_observation(
+        _field_observations(observations, "headline")
+    )
+    headline = _value(headline_obs) if headline_obs is not None else None
+    if headline_obs is not None:
+        provenance.append(_provenance_from_observation(headline_obs))
 
     skills, skill_provenance = _resolve_skills(observations)
     provenance.extend(skill_provenance)
@@ -149,8 +176,13 @@ def resolve_canonical_candidate(cluster: CandidateCluster) -> CanonicalCandidate
         emails=email_resolution.emails,
         phones=phone_resolution.phones,
         location=CandidateLocation(),
-        links=CandidateLinks(github=github),
-        headline=None,
+        links=CandidateLinks(
+            linkedin=linkedin,
+            github=github,
+            portfolio=portfolio,
+            other=other_links,
+        ),
+        headline=headline,
         years_experience=None,
         skills=skills,
         experience=experience,

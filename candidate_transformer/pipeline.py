@@ -4,6 +4,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from candidate_transformer.adapters.github_profile import (
+    DEFAULT_TIMEOUT_SECONDS,
+    fetch_github_profile,
+)
 from candidate_transformer.adapters.recruiter_csv import parse_recruiter_csv
 from candidate_transformer.adapters.recruiter_notes import parse_recruiter_notes_file
 from candidate_transformer.core.canonical import CanonicalCandidate
@@ -14,6 +18,7 @@ from candidate_transformer.core.entity_resolution import (
 )
 from candidate_transformer.core.field_resolution import resolve_canonical_candidates
 from candidate_transformer.core.models import Observation
+from candidate_transformer.core.normalize import normalize_github_url
 from candidate_transformer.core.projection import (
     project_candidate,
     validate_projection_config,
@@ -38,9 +43,13 @@ def run_candidate_pipeline(
     *,
     csv_paths: Sequence[str | Path] = (),
     note_paths: Sequence[str | Path] = (),
+    github_urls: Sequence[str] = (),
     note_candidate_refs: Mapping[str | Path, str] | None = None,
     projection_config: Mapping[str, Any] | None = None,
     default_phone_region: str = "IN",
+    enrich_github: bool = False,
+    github_token: str | None = None,
+    github_timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> PipelineResult:
     """
     End-to-end pipeline runner.
@@ -84,6 +93,35 @@ def run_candidate_pipeline(
             note_path,
             default_phone_region=default_phone_region,
             candidate_ref=candidate_ref,
+        )
+        observations.extend(adapter_result.observations)
+        warnings.extend(adapter_result.warnings)
+        errors.extend(adapter_result.errors)
+
+    github_inputs = list(github_urls)
+    if enrich_github:
+        github_inputs.extend(
+            str(observation.normalized_value)
+            for observation in observations
+            if (
+                observation.field_path == "links.github"
+                and observation.normalized_value is not None
+            )
+        )
+
+    seen_github_inputs: set[str] = set()
+    for github_input in github_inputs:
+        normalized_github_url = normalize_github_url(github_input)
+        dedupe_key = normalized_github_url or f"invalid:{github_input}"
+
+        if dedupe_key in seen_github_inputs:
+            continue
+
+        seen_github_inputs.add(dedupe_key)
+        adapter_result = fetch_github_profile(
+            github_input,
+            token=github_token,
+            timeout=github_timeout,
         )
         observations.extend(adapter_result.observations)
         warnings.extend(adapter_result.warnings)

@@ -1,3 +1,7 @@
+from candidate_transformer.adapters.github_profile import (
+    observations_from_github_payload,
+)
+from candidate_transformer.core.models import AdapterResult
 from candidate_transformer.pipeline import run_candidate_pipeline
 
 
@@ -336,6 +340,127 @@ def test_pipeline_does_not_return_candidate_that_fails_canonical_schema(
     assert result.canonical_candidates == ()
     assert len(result.errors) == 1
     assert "canonical schema validation failed" in result.errors[0]
+
+
+def test_pipeline_enriches_github_discovered_in_csv_and_notes_only_once(
+    tmp_path,
+    monkeypatch,
+):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,email,github_url\n"
+        "Alex Chen,alex@example.com,github.com/alexchen\n",
+        encoding="utf-8",
+    )
+    note_path = tmp_path / "alex.txt"
+    note_path.write_text(
+        "Portfolio context: https://github.com/alexchen and strong Python.",
+        encoding="utf-8",
+    )
+    calls = []
+
+    def fake_fetch(github_url, *, token, timeout):
+        calls.append((github_url, token, timeout))
+        return AdapterResult(
+            observations=observations_from_github_payload(
+                github_url,
+                profile={
+                    "name": "Alexander Chen",
+                    "html_url": "https://github.com/alexchen",
+                    "blog": "alex.example.com",
+                    "bio": "Distributed systems engineer",
+                },
+                repositories=[
+                    {
+                        "full_name": "alexchen/service",
+                        "language": "Go",
+                        "fork": False,
+                    }
+                ],
+            )
+        )
+
+    monkeypatch.setattr(
+        "candidate_transformer.pipeline.fetch_github_profile",
+        fake_fetch,
+    )
+
+    result = run_candidate_pipeline(
+        csv_paths=[csv_path],
+        note_paths=[note_path],
+        enrich_github=True,
+        github_token="secret",
+    )
+
+    assert result.ok
+    assert len(calls) == 1
+    assert calls[0][0] == "https://github.com/alexchen"
+    assert calls[0][1] == "secret"
+    assert len(result.canonical_candidates) == 1
+
+    candidate = result.canonical_candidates[0]
+    # Higher-confidence recruiter CSV evidence remains authoritative.
+    assert candidate.full_name == "Alex Chen"
+    assert candidate.headline == "Distributed systems engineer"
+    assert candidate.links.portfolio == "https://alex.example.com"
+    assert {skill.name for skill in candidate.skills} == {"Go", "Python"}
+
+
+def test_pipeline_explicit_github_source_enriches_without_discovery_flag(
+    monkeypatch,
+):
+    calls = []
+
+    def fake_fetch(github_url, *, token, timeout):
+        calls.append(github_url)
+        return AdapterResult(
+            observations=observations_from_github_payload(
+                github_url,
+                profile={
+                    "name": "Alex Chen",
+                    "html_url": "https://github.com/alexchen",
+                },
+                repositories=[],
+            )
+        )
+
+    monkeypatch.setattr(
+        "candidate_transformer.pipeline.fetch_github_profile",
+        fake_fetch,
+    )
+
+    result = run_candidate_pipeline(
+        github_urls=["github.com/alexchen"],
+    )
+
+    assert result.ok
+    assert calls == ["github.com/alexchen"]
+    assert len(result.canonical_candidates) == 1
+    assert result.canonical_candidates[0].full_name == "Alex Chen"
+
+
+def test_pipeline_does_not_fetch_discovered_github_without_opt_in(
+    tmp_path,
+    monkeypatch,
+):
+    csv_path = tmp_path / "candidates.csv"
+    csv_path.write_text(
+        "name,github_url\nAlex Chen,github.com/alexchen\n",
+        encoding="utf-8",
+    )
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("GitHub enrichment should be opt-in")
+
+    monkeypatch.setattr(
+        "candidate_transformer.pipeline.fetch_github_profile",
+        fail_if_called,
+    )
+
+    result = run_candidate_pipeline(csv_paths=[csv_path])
+
+    assert result.ok
+    assert len(result.canonical_candidates) == 1
 
 
 def test_negated_note_does_not_remove_positive_skill_from_another_note(tmp_path):
